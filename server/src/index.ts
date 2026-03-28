@@ -26,14 +26,41 @@ import {
 import { MqttBridge } from './mqtt-bridge.js';
 import { registerClient } from './ws-hub.js';
 
+type WebsocketRouteArg = WebSocket | { socket: WebSocket };
+
+function websocketFromRouteArg(connection: WebsocketRouteArg): WebSocket {
+  return 'socket' in connection ? connection.socket : connection;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(__dirname, '../public');
 
+const DEFAULT_HTTP_PORT = 8080;
+const DEFAULT_MQTT_PORT = 1883;
+const DEFAULT_MAX_MESSAGE_BYTES = 262144;
+const MAX_MESSAGE_BYTES_CAP = 256 * 1024 * 1024;
+
+function envTcpPort(name: string, fallback: number): number {
+  const n = Number(process.env[name]);
+  if (!Number.isFinite(n)) return fallback;
+  const p = Math.floor(n);
+  if (p < 1 || p > 65535) return fallback;
+  return p;
+}
+
+function envMaxMessageBytes(fallback: number): number {
+  const n = Number(process.env.MAX_MESSAGE_BYTES);
+  if (!Number.isFinite(n)) return fallback;
+  const b = Math.floor(n);
+  if (b <= 0) return fallback;
+  return Math.min(b, MAX_MESSAGE_BYTES_CAP);
+}
+
 const SQLITE_PATH = process.env.SQLITE_PATH ?? '/data/mqtt-parser.db';
-const HTTP_PORT = Number(process.env.HTTP_PORT ?? '8080');
+const HTTP_PORT = envTcpPort('HTTP_PORT', DEFAULT_HTTP_PORT);
 const MQTT_HOST = process.env.MQTT_HOST ?? '127.0.0.1';
-const MQTT_PORT = Number(process.env.MQTT_PORT ?? '1883');
-const MAX_MESSAGE_BYTES = Number(process.env.MAX_MESSAGE_BYTES ?? '262144');
+const MQTT_PORT = envTcpPort('MQTT_PORT', DEFAULT_MQTT_PORT);
+const MAX_MESSAGE_BYTES = envMaxMessageBytes(DEFAULT_MAX_MESSAGE_BYTES);
 
 const db = openDb(SQLITE_PATH);
 const bridge = new MqttBridge(db, MQTT_HOST, MQTT_PORT, MAX_MESSAGE_BYTES);
@@ -356,8 +383,8 @@ app.post<{
   }
 });
 
-app.get('/ws', { websocket: true }, (socket) => {
-  registerClient(socket as WebSocket);
+app.get('/ws', { websocket: true }, (connection, _request) => {
+  registerClient(websocketFromRouteArg(connection as WebsocketRouteArg));
 });
 
 await app.register(fastifyStatic, {

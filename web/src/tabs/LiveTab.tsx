@@ -48,11 +48,19 @@ function publishHistoryOptionLabel(e: Pick<PublishPreset, 'topic' | 'payload'>):
 }
 
 const LS_LIVE_PUBLISH_SPLIT_PCT = 'mqttParser.livePublishSplitPct';
+const LIVE_PUBLISH_SPLIT_MIN_PCT = 22;
+const LIVE_PUBLISH_SPLIT_MAX_PCT = 82;
 
 function readLivePublishSplitPct(): number {
   try {
     const v = Number(localStorage.getItem(LS_LIVE_PUBLISH_SPLIT_PCT));
-    if (Number.isFinite(v) && v >= 22 && v <= 82) return v;
+    if (
+      Number.isFinite(v) &&
+      v >= LIVE_PUBLISH_SPLIT_MIN_PCT &&
+      v <= LIVE_PUBLISH_SPLIT_MAX_PCT
+    ) {
+      return v;
+    }
   } catch {
     /* ignore */
   }
@@ -73,7 +81,10 @@ export function LivePublishSplitView({ items }: { items: MessageRow[] }) {
       const r = containerRef.current.getBoundingClientRect();
       const x = e.clientX - r.left;
       let pct = (x / r.width) * 100;
-      pct = Math.min(82, Math.max(22, pct));
+      pct = Math.min(
+        LIVE_PUBLISH_SPLIT_MAX_PCT,
+        Math.max(LIVE_PUBLISH_SPLIT_MIN_PCT, pct)
+      );
       setLeftPct(pct);
     };
     const onUp = () => {
@@ -87,6 +98,9 @@ export function LivePublishSplitView({ items }: { items: MessageRow[] }) {
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      dragRef.current = false;
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
     };
   }, []);
 
@@ -111,6 +125,10 @@ export function LivePublishSplitView({ items }: { items: MessageRow[] }) {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize live and publish panels"
+        aria-valuemin={LIVE_PUBLISH_SPLIT_MIN_PCT}
+        aria-valuemax={LIVE_PUBLISH_SPLIT_MAX_PCT}
+        aria-valuenow={Math.round(leftPct)}
+        aria-valuetext={`Live feed ${Math.round(leftPct)}%, publish and rules ${Math.round(100 - leftPct)}%`}
         tabIndex={0}
         onMouseDown={(e) => {
           e.preventDefault();
@@ -121,10 +139,10 @@ export function LivePublishSplitView({ items }: { items: MessageRow[] }) {
         onKeyDown={(e) => {
           if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            setLeftPct((p) => Math.max(22, p - 2));
+            setLeftPct((p) => Math.max(LIVE_PUBLISH_SPLIT_MIN_PCT, p - 2));
           } else if (e.key === 'ArrowRight') {
             e.preventDefault();
-            setLeftPct((p) => Math.min(82, p + 2));
+            setLeftPct((p) => Math.min(LIVE_PUBLISH_SPLIT_MAX_PCT, p + 2));
           }
         }}
       />
@@ -171,6 +189,10 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
     w1: number;
     w2: number;
   } | null>(null);
+  const colResizeWindowHandlersRef = useRef<{
+    onMove: (ev: globalThis.MouseEvent) => void;
+    onUp: () => void;
+  } | null>(null);
 
   const [colPcts, setColPcts] = useState<[number, number, number]>(() => readLiveTableColPcts());
   const colPctsRef = useRef<[number, number, number]>(colPcts);
@@ -184,6 +206,20 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
     }
   }, [colPcts]);
 
+  useEffect(() => {
+    return () => {
+      const h = colResizeWindowHandlersRef.current;
+      if (h) {
+        window.removeEventListener('mousemove', h.onMove);
+        window.removeEventListener('mouseup', h.onUp);
+        colResizeWindowHandlersRef.current = null;
+      }
+      colDragRef.current = null;
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+    };
+  }, []);
+
   const beginColResize = useCallback(
     (
       e: { preventDefault: () => void; stopPropagation: () => void; clientX: number },
@@ -191,6 +227,12 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
     ) => {
       e.preventDefault();
       e.stopPropagation();
+      const prevHandlers = colResizeWindowHandlersRef.current;
+      if (prevHandlers) {
+        window.removeEventListener('mousemove', prevHandlers.onMove);
+        window.removeEventListener('mouseup', prevHandlers.onUp);
+        colResizeWindowHandlersRef.current = null;
+      }
       const p = colPctsRef.current;
       colDragRef.current = {
         which,
@@ -254,8 +296,10 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
         document.body.style.removeProperty('user-select');
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
+        colResizeWindowHandlersRef.current = null;
       };
 
+      colResizeWindowHandlersRef.current = { onMove, onUp };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
@@ -642,61 +686,64 @@ function RulesView({ inSplit }: { inSplit?: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {rules.map((r) => (
-              <tr
-                key={r.id}
-                className={editingRuleId === r.id ? 'rules-row--editing' : undefined}
-              >
-                <td className="rules-col-on">
-                  <button
-                    type="button"
-                    className={`rule-on-dot rule-on-toggle ${r.enabled ? 'rule-on-dot--on' : 'rule-on-dot--off'}`}
-                    aria-label={r.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
-                    aria-pressed={r.enabled}
-                    title={r.enabled ? 'Click to disable' : 'Click to enable'}
-                    onClick={() =>
-                      void api
-                        .updateRule(r.id, { enabled: !r.enabled })
-                        .then(() => load())
-                    }
-                  />
-                </td>
-                <td>{r.name}</td>
-                <td className="mono">{r.topic_pattern}</td>
-                <td className="mono">
-                  {r.reply_topic}: {r.reply_payload_template.slice(0, 40)}
-                  {r.reply_payload_template.length > 40 ? '…' : ''}
-                </td>
-                <td className="rules-actions-cell">
-                  <div className="rules-actions">
+            {rules.map((r) => {
+              const enabled = Boolean(r.enabled);
+              return (
+                <tr
+                  key={r.id}
+                  className={editingRuleId === r.id ? 'rules-row--editing' : undefined}
+                >
+                  <td className="rules-col-on">
                     <button
                       type="button"
-                      className="ghost rules-icon-btn"
-                      aria-label="Edit rule"
-                      data-tooltip="Edit rule"
-                      onClick={() => startEdit(r)}
-                    >
-                      <IconRuleEdit />
-                    </button>
-                    <button
-                      type="button"
-                      className="danger rules-icon-btn"
-                      aria-label="Delete rule"
-                      data-tooltip="Delete rule"
-                      onClick={() => {
-                        if (!confirm('Delete rule?')) return;
-                        void api.deleteRule(r.id).then(() => {
-                          if (editingRuleId === r.id) resetFormForNew();
-                          void load();
-                        });
-                      }}
-                    >
-                      <IconTrash />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      className={`rule-on-dot rule-on-toggle ${enabled ? 'rule-on-dot--on' : 'rule-on-dot--off'}`}
+                      aria-label={enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                      aria-pressed={enabled}
+                      title={enabled ? 'Click to disable' : 'Click to enable'}
+                      onClick={() =>
+                        void api
+                          .updateRule(r.id, { enabled: !enabled })
+                          .then(() => load())
+                      }
+                    />
+                  </td>
+                  <td>{r.name}</td>
+                  <td className="mono">{r.topic_pattern}</td>
+                  <td className="mono">
+                    {r.reply_topic}: {r.reply_payload_template.slice(0, 40)}
+                    {r.reply_payload_template.length > 40 ? '…' : ''}
+                  </td>
+                  <td className="rules-actions-cell">
+                    <div className="rules-actions">
+                      <button
+                        type="button"
+                        className="ghost rules-icon-btn"
+                        aria-label="Edit rule"
+                        data-tooltip="Edit rule"
+                        onClick={() => startEdit(r)}
+                      >
+                        <IconRuleEdit />
+                      </button>
+                      <button
+                        type="button"
+                        className="danger rules-icon-btn"
+                        aria-label="Delete rule"
+                        data-tooltip="Delete rule"
+                        onClick={() => {
+                          if (!confirm('Delete rule?')) return;
+                          void api.deleteRule(r.id).then(() => {
+                            if (editingRuleId === r.id) resetFormForNew();
+                            void load();
+                          });
+                        }}
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

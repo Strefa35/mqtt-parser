@@ -1,8 +1,8 @@
 # --- Frontend build ---
 FROM node:20-bookworm AS web
 WORKDIR /w
-COPY web/package.json ./
-RUN npm install
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
 COPY web/ ./
 RUN npm run build
 
@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY server/package.json ./
-RUN npm install
+COPY server/package.json server/package-lock.json ./
+RUN npm ci
 
 COPY server/ ./
 RUN npm run build && npm prune --omit=dev

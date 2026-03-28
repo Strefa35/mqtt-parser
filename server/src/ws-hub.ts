@@ -1,4 +1,4 @@
-import type { WebSocket } from 'ws';
+import WebSocket from 'ws';
 
 const clients = new Set<WebSocket>();
 
@@ -12,7 +12,7 @@ export function registerClient(ws: WebSocket): void {
 export function broadcast(event: string, data: unknown): void {
   const msg = JSON.stringify({ event, data });
   for (const ws of clients) {
-    if (ws.readyState === 1) {
+    if (ws.readyState === WebSocket.OPEN) {
       try {
         ws.send(msg);
       } catch {

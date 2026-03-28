@@ -125,6 +125,10 @@ export function HistoryView() {
     startX: number;
     initialPcts: HistoryColPcts;
   } | null>(null);
+  const historyColResizeWindowHandlersRef = useRef<{
+    onMove: (ev: globalThis.MouseEvent) => void;
+    onUp: () => void;
+  } | null>(null);
 
   const [historyColPcts, setHistoryColPcts] = useState<HistoryColPcts>(() =>
     readHistoryTableColPcts()
@@ -140,6 +144,20 @@ export function HistoryView() {
     }
   }, [historyColPcts]);
 
+  useEffect(() => {
+    return () => {
+      const h = historyColResizeWindowHandlersRef.current;
+      if (h) {
+        window.removeEventListener('mousemove', h.onMove);
+        window.removeEventListener('mouseup', h.onUp);
+        historyColResizeWindowHandlersRef.current = null;
+      }
+      historyColDragRef.current = null;
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+    };
+  }, []);
+
   const beginHistoryColResize = useCallback(
     (
       e: { preventDefault: () => void; stopPropagation: () => void; clientX: number },
@@ -147,6 +165,12 @@ export function HistoryView() {
     ) => {
       e.preventDefault();
       e.stopPropagation();
+      const prevHandlers = historyColResizeWindowHandlersRef.current;
+      if (prevHandlers) {
+        window.removeEventListener('mousemove', prevHandlers.onMove);
+        window.removeEventListener('mouseup', prevHandlers.onUp);
+        historyColResizeWindowHandlersRef.current = null;
+      }
       const initialPcts = historyColPctsRef.current;
       historyColDragRef.current = {
         which,
@@ -190,8 +214,10 @@ export function HistoryView() {
         document.body.style.removeProperty('user-select');
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
+        historyColResizeWindowHandlersRef.current = null;
       };
 
+      historyColResizeWindowHandlersRef.current = { onMove, onUp };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
