@@ -1,0 +1,19 @@
+services:
+  mqtt-parser:
+    build: .
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${MQTT_PORT:-1883}:1883"
+    environment:
+      HTTP_PORT: "8080"
+      MQTT_PORT: "1883"
+      MQTT_HOST: "127.0.0.1"
+      SQLITE_PATH: /data/mqtt-parser.db
+      MAX_MESSAGE_BYTES: "262144"
+      # Own /data on the host (SQLite); match: id -u / id -g on Linux
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    # Bind mount: SQLite and WAL files appear as ./data/ in this project directory.
+    volumes:
+      - ./data:/data
+
