@@ -215,4 +215,5 @@ sequenceDiagram
 
 - [REQUIREMENTS.md](REQUIREMENTS.md) — product requirements and acceptance criteria.
 - [API.md](API.md) — HTTP and WebSocket API reference.
+- [DEPENDENCIES.md](DEPENDENCIES.md) — libraries and versions by layer.
 - Root [README.md](../README.md) — operator quick start and env vars.

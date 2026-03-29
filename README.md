@@ -165,4 +165,5 @@ After cleaning, run again with `docker compose up --build`, or reinstall locally
 - `docs/REQUIREMENTS.md` — requirements  
 - `docs/ARCHITECTURE.md` — system and module architecture  
 - `docs/API.md` — HTTP and WebSocket API reference  
+- `docs/DEPENDENCIES.md` — npm packages by layer (versions from lockfiles)  
 - `docs/screenshots/` — README screenshot(s) (`live-publish.png`)
