@@ -8,7 +8,7 @@ Default **Live & Publish** view: live feed (left) and **Publish** / **Rules** su
 
 ![MQTT Parser — Live & Publish (default tab)](docs/screenshots/live-publish.png)
 
-See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full product specification.
+See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full product specification, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for runtime and code layout, and [docs/API.md](docs/API.md) for the HTTP and WebSocket API.
 
 ## Quick start
 
@@ -92,19 +92,11 @@ The default image uses **non-TLS MQTT** and **anonymous** broker access, suitabl
 
 ## HTTP API (optional automation)
 
-- `GET /api/health` — liveness and MQTT client state  
-- `GET|PATCH /api/config` — subscription pattern, parse mode, host hint, and **MQTT client**: `mqttClientHost`, `mqttClientPort` (number or `""` to clear), `mqttClientUsername`, `mqttClientPassword` (omit to keep; `""` to clear), `mqttProtocol` (`"3.1.1"` \| `"5"`), `mqttKeepalive` (seconds). Changing broker client settings triggers a reconnect. Response includes `mqttClient` (effective host/port, `passwordSet`, etc.).  
-- `GET /api/messages` — paginated history (query: `page`, `limit`, `topicContains`, `search`, `fromTs`, `toTs`)  
-- `DELETE /api/messages/:id`  
-- `POST /api/messages/delete-bulk` — body `{ "ids": [1,2,3] }`  
-- `POST /api/messages/delete-by-filter` — body `{ "confirm": true, ...filters }`  
-- `GET /api/rules` — list rules  
-- `POST /api/rules` — create (camelCase JSON body)  
-- `PATCH /api/rules/:id` — update  
-- `DELETE /api/rules/:id`  
-- `GET /api/publish-presets` — saved publish shortcuts: `{ "items": [ { "id", "topic", "payload", "lastUsedAt" } ] }` (SQLite, newest first, max 30)  
-- `POST /api/publish` — body `{ "topic", "payload", "qos", "retain" }`; on **success**, upserts **topic + payload** into **`publish_presets`** (then trims to 30 rows)  
-- `GET /ws` — WebSocket stream (`{"event":"message"|"log","data":...}`)
+Full reference: **[docs/API.md](docs/API.md)** (REST + WebSocket). Short list:
+
+- `GET /api/health` · `GET` \| `PATCH /api/config` · `GET /api/messages` · `DELETE /api/messages/:id` · `POST /api/messages/delete-bulk` · `POST /api/messages/delete-by-filter`
+- `GET /api/logs` · `GET` / `POST` / `PATCH` / `DELETE` **`/api/rules`** and **`/api/rules/:id`**
+- `GET /api/publish-presets` · `POST /api/publish` · `GET /ws`
 
 ## Development (without Docker)
 
@@ -171,4 +163,6 @@ After cleaning, run again with `docker compose up --build`, or reinstall locally
 - `server/` — Fastify API, MQTT client, SQLite, rules engine  
 - `web/` — React + Vite UI (`src/tabs/*.tsx` — Live, History, Config, Logs, Help; `App.tsx` shell)  
 - `docs/REQUIREMENTS.md` — requirements  
+- `docs/ARCHITECTURE.md` — system and module architecture  
+- `docs/API.md` — HTTP and WebSocket API reference  
 - `docs/screenshots/` — README screenshot(s) (`live-publish.png`)
