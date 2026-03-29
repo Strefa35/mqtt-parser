@@ -386,18 +386,13 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
                     <div className="live-cell-scroll">{m.topic}</div>
                   </td>
                   <td className="mono">
-                    <div
+                    <button
+                      type="button"
                       className="live-payload-cell-toggle"
-                      role="button"
-                      tabIndex={0}
+                      aria-pressed={rowMode === 'json'}
+                      aria-label="Toggle payload between plain text and formatted JSON"
                       title="Click: toggle plain / formatted JSON for this row only"
                       onClick={() => onPayloadCellClick(m.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onPayloadCellClick(m.id);
-                        }
-                      }}
                     >
                       {rowMode === 'json' ? (
                         <pre className="live-payload-pre live-cell-scroll">
@@ -411,7 +406,7 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
                           {formatPayloadForDisplay(m.payload_display, 'plain')}
                         </div>
                       )}
-                    </div>
+                    </button>
                   </td>
                 </tr>
               );

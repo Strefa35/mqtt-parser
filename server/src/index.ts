@@ -254,9 +254,10 @@ app.post<{ Body: Record<string, unknown> }>('/api/messages/delete-by-filter', as
 
 app.get('/api/logs', async (req) => {
   const q = req.query as Record<string, string | string[] | undefined>;
-  const lim = Number(
+  let lim = Number(
     (Array.isArray(q.limit) ? q.limit[0] : q.limit) ?? '200'
   );
+  if (!Number.isFinite(lim)) lim = 200;
   return { items: listAppLogs(db, lim) };
 });
 

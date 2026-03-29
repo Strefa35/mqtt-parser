@@ -236,7 +236,8 @@ export type AppLogRow = {
 };
 
 export function listAppLogs(db: Database.Database, limit: number): AppLogRow[] {
-  const lim = Math.min(Math.max(limit, 1), 500);
+  const n = Number.isFinite(limit) ? limit : 200;
+  const lim = Math.min(Math.max(n, 1), 500);
   return db
     .prepare(
       'SELECT id, at, level, message, meta FROM app_logs ORDER BY id DESC LIMIT ?'

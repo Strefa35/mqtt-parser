@@ -838,7 +838,7 @@ textarea {
   max-width: 100%;
 }
 
-button:not(.rule-on-toggle) {
+button:not(.rule-on-toggle):not(.live-payload-cell-toggle) {
   box-sizing: border-box;
   min-height: var(--btn-height);
   padding: 0.4rem 0.75rem;
@@ -1044,6 +1044,23 @@ table.live-feed-table {
 .live-payload-cell-toggle {
   cursor: pointer;
   border-radius: 4px;
+}
+
+button.live-payload-cell-toggle {
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  width: 100%;
+  min-height: 0;
+  display: block;
 }
 
 .live-payload-cell-toggle:hover {

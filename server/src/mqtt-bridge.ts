@@ -89,8 +89,6 @@ export class MqttBridge {
   }
 
   private buildClientOptions(): IClientOptions {
-    const host = this.resolveHost();
-    const port = this.resolvePort();
     const protocol = getSetting(this.db, 'mqtt_protocol').trim() === '5' ? 5 : 4;
     const username = getSetting(this.db, 'mqtt_username').trim();
     const password = getSetting(this.db, 'mqtt_password');
