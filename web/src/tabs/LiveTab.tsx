@@ -379,6 +379,7 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
           <tbody>
             {items.map((m) => {
               const rowMode = rowPayloadMode[m.id] ?? LIVE_FEED_DEFAULT_ROW_PAYLOAD;
+              const payloadBadge = m.payload_encoding === 'hex' ? 'hex' : rowMode === 'json' ? 'json' : 'text';
               return (
                 <tr key={m.id}>
                   <td className="mono">{fmtTime(m.received_at)}</td>
@@ -395,14 +396,15 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
                       onClick={() => onPayloadCellClick(m.id)}
                     >
                       {rowMode === 'json' ? (
-                        <pre className="live-payload-pre live-cell-scroll">
-                          <span className="badge">{m.payload_encoding}</span>
-                          {'\n'}
-                          {formatPayloadForDisplay(m.payload_display, 'json')}
-                        </pre>
+                        <div className="live-payload-json-block">
+                          <span className="badge">{payloadBadge}</span>
+                          <pre className="live-payload-pre live-cell-scroll live-payload-pre--json">
+                            {formatPayloadForDisplay(m.payload_display, 'json')}
+                          </pre>
+                        </div>
                       ) : (
                         <div className="live-cell-scroll">
-                          <span className="badge">{m.payload_encoding}</span>{' '}
+                          <span className="badge">{payloadBadge}</span>{' '}
                           {formatPayloadForDisplay(m.payload_display, 'plain')}
                         </div>
                       )}
@@ -657,7 +659,7 @@ function RulesView({ inSplit }: { inSplit?: boolean }) {
         Reply payload template
         <textarea value={replyTpl} onChange={(e) => setReplyTpl(e.target.value)} />
       </label>
-      <div className="row" style={{ marginBottom: 0 }}>
+      <div className="row" style={{ marginBottom: 0, marginTop: '0.65rem' }}>
         <button type="button" className="primary" onClick={() => void saveRule()}>
           {editingRuleId != null ? 'Save changes' : 'Add rule'}
         </button>

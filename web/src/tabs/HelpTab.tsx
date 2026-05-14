@@ -1,4 +1,21 @@
+import { useEffect, useState } from 'react';
+import * as api from '../api';
+
 export function HelpView() {
+  const [hostIp, setHostIp] = useState<string | null>(null);
+  const [hostIpError, setHostIpError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const info = await api.getHostInfo();
+        setHostIp(info.hostIp);
+      } catch (e) {
+        setHostIpError(String(e));
+      }
+    })();
+  }, []);
+
   return (
     <section className="panel help-panel">
       <h2>Help</h2>
@@ -78,6 +95,17 @@ export function HelpView() {
         separately. Choose <strong>Theme</strong>{' '}
         in the tab bar for dark, light, or
         system appearance (stored in the browser).
+      </p>
+
+      <h3>Docker Host</h3>
+      <p>
+        {hostIpError ? (
+          <span style={{ color: 'var(--danger)' }}>Error: {hostIpError}</span>
+        ) : hostIp ? (
+          <>Docker host IP: <code>{hostIp}</code></>
+        ) : (
+          <em>Loading host IP...</em>
+        )}
       </p>
     </section>
   );

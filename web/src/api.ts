@@ -280,6 +280,14 @@ export type AppHealth = {
   embeddedMqttBrokerRunning: boolean;
 };
 
+export type HostInfo = {
+  hostIp: string;
+};
+
 export function getHealth() {
   return j<AppHealth>(fetch(apiUrl('/api/health')));
+}
+
+export function getHostInfo() {
+  return j<HostInfo>(fetch(apiUrl('/api/host-info')));
 }

@@ -66,6 +66,7 @@ const MQTT_HOST = process.env.MQTT_HOST ?? '127.0.0.1';
 const MQTT_PORT = envTcpPort('MQTT_PORT', DEFAULT_MQTT_PORT);
 const MOSQUITTO_PID_FILE = process.env.MOSQUITTO_PID_FILE ?? '/tmp/mosquitto-mqtt-parser.pid';
 const MAX_MESSAGE_BYTES = envMaxMessageBytes(DEFAULT_MAX_MESSAGE_BYTES);
+const DOCKER_HOST_IP = process.env.DOCKER_HOST_IP ?? 'host.docker.internal';
 
 const db = openDb(SQLITE_PATH);
 
@@ -175,6 +176,12 @@ app.get('/api/health', async () => {
     limits: {
       maxMessageBytes: MAX_MESSAGE_BYTES,
     },
+  };
+});
+
+app.get('/api/host-info', async () => {
+  return {
+    hostIp: DOCKER_HOST_IP,
   };
 });
 

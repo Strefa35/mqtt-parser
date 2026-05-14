@@ -384,6 +384,7 @@ export function HistoryView() {
           <tbody>
             {items.map((m) => {
               const rowMode = rowPayloadMode[m.id] ?? LIVE_FEED_DEFAULT_ROW_PAYLOAD;
+              const payloadBadge = m.payload_encoding === 'hex' ? 'hex' : rowMode === 'json' ? 'json' : 'text';
               return (
               <tr key={m.id}>
                 <td className="history-cell-checkbox">
@@ -410,14 +411,15 @@ export function HistoryView() {
                     onClick={() => onHistoryPayloadClick(m.id)}
                   >
                     {rowMode === 'json' ? (
-                      <pre className="live-payload-pre history-payload-cell">
-                        <span className="badge">{m.payload_encoding}</span>
-                        {'\n'}
-                        {formatPayloadForDisplay(m.payload_display, 'json')}
-                      </pre>
+                      <div className="live-payload-json-block">
+                        <span className="badge">{payloadBadge}</span>
+                        <pre className="live-payload-pre history-payload-cell live-payload-pre--json">
+                          {formatPayloadForDisplay(m.payload_display, 'json')}
+                        </pre>
+                      </div>
                     ) : (
                       <div className="history-payload-cell">
-                        <span className="badge">{m.payload_encoding}</span>{' '}
+                        <span className="badge">{payloadBadge}</span>{' '}
                         {formatPayloadForDisplay(m.payload_display, 'plain')}
                       </div>
                     )}
