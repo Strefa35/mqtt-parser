@@ -464,6 +464,23 @@ app.post<{
   Body: {
     topic?: unknown;
     payload?: unknown;
+  };
+}>('/api/publish-presets', async (req, reply) => {
+  const b = req.body ?? {};
+  if (typeof b.topic !== 'string' || !b.topic.trim()) {
+    return reply.code(400).send({ error: 'topic required' });
+  }
+  if (typeof b.payload !== 'string') {
+    return reply.code(400).send({ error: 'payload must be a string' });
+  }
+  upsertPublishPreset(db, b.topic.trim(), b.payload);
+  return { ok: true };
+});
+
+app.post<{
+  Body: {
+    topic?: unknown;
+    payload?: unknown;
     qos?: unknown;
     retain?: unknown;
   };

@@ -857,6 +857,7 @@ main.main-live > .live-publish-split {
 .rules-icon-svg {
   display: block;
   flex-shrink: 0;
+  transition: transform 0.08s ease;
 }
 
 .rules-col-on {
@@ -1044,8 +1045,8 @@ table.history-feed-table {
 }
 
 .history-feed-table col.history-col-actions {
-  width: 2.75rem;
-  min-width: 2.75rem;
+  width: 4.75rem;
+  min-width: 4.75rem;
 }
 
 .history-feed-table td.history-cell-id {
@@ -1056,9 +1057,9 @@ table.history-feed-table {
 
 .history-feed-table th.history-th-actions,
 .history-feed-table td.history-actions-cell {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  max-width: 2.75rem;
+  width: 4.75rem;
+  min-width: 4.75rem;
+  max-width: 4.75rem;
   box-sizing: border-box;
   text-align: center;
   vertical-align: middle;
@@ -1196,6 +1197,19 @@ button:not(.rule-on-toggle):not(.live-payload-cell-toggle) {
   cursor: pointer;
 }
 
+/* Global tactile feedback: a subtle press effect on click. */
+button {
+  transition:
+    transform 0.08s ease,
+    filter 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  filter: brightness(0.97);
+}
+
 button.primary {
   background: var(--btn-primary-bg);
   border: 1px solid var(--btn-primary-border);
@@ -1225,6 +1239,14 @@ button.rules-icon-btn {
   max-height: var(--rules-icon-btn-size);
   padding: 0;
   flex-shrink: 0;
+}
+
+button.rules-icon-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.94);
+}
+
+button.rules-icon-btn:active:not(:disabled) .rules-icon-svg {
+  transform: scale(0.95);
 }
 
 button.rules-icon-btn[data-tooltip]::after {

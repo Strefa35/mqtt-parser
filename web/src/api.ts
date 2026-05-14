@@ -256,6 +256,17 @@ export function getPublishPresets() {
   return j<{ items: PublishPreset[] }>(fetch(apiUrl('/api/publish-presets')));
 }
 
+/** Save a topic+payload pair to Recent commands without publishing it. */
+export function addPublishPreset(body: { topic: string; payload: string }) {
+  return j<{ ok: boolean }>(
+    fetch(apiUrl('/api/publish-presets'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  );
+}
+
 export function publishMqtt(body: {
   topic: string;
   payload: string;

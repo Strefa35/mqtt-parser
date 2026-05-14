@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MessageRow } from '../api';
 import * as api from '../api';
 import { LIVE_FEED_DEFAULT_ROW_PAYLOAD } from '../defaults';
-import { IconTrash } from '../icons';
+import { IconAdd, IconTrash } from '../icons';
 import { fmtTime, formatPayloadForDisplay } from '../utils/format';
 
 const LS_HISTORY_TABLE_COL_PCTS = 'mqttParser.historyTableColPcts';
@@ -334,7 +334,7 @@ export function HistoryView() {
             ))}
             <col
               className="history-col-actions"
-              style={{ width: '2.75rem', minWidth: '2.75rem' }}
+              style={{ width: '4.75rem', minWidth: '4.75rem' }}
             />
           </colgroup>
           <thead>
@@ -426,23 +426,43 @@ export function HistoryView() {
                   </button>
                 </td>
                 <td className="history-actions-cell">
-                  <button
-                    type="button"
-                    className="danger rules-icon-btn"
-                    aria-label={`Delete message ${m.id}`}
-                    data-tooltip="Delete message"
-                    onClick={async () => {
-                      if (!confirm(`Delete message ${m.id}?`)) return;
-                      try {
-                        await api.deleteMessage(m.id);
-                        await load();
-                      } catch (e) {
-                        alert(String(e));
-                      }
-                    }}
-                  >
-                    <IconTrash />
-                  </button>
+                  <div className="rules-actions">
+                    <button
+                      type="button"
+                      className="ghost rules-icon-btn"
+                      aria-label={`Add message ${m.id} payload to recent commands`}
+                      data-tooltip="Add to recent commands"
+                      onClick={async () => {
+                        try {
+                          await api.addPublishPreset({
+                            topic: m.topic,
+                            payload: m.payload_display,
+                          });
+                        } catch (e) {
+                          alert(String(e));
+                        }
+                      }}
+                    >
+                      <IconAdd />
+                    </button>
+                    <button
+                      type="button"
+                      className="danger rules-icon-btn"
+                      aria-label={`Delete message ${m.id}`}
+                      data-tooltip="Delete message"
+                      onClick={async () => {
+                        if (!confirm(`Delete message ${m.id}?`)) return;
+                        try {
+                          await api.deleteMessage(m.id);
+                          await load();
+                        } catch (e) {
+                          alert(String(e));
+                        }
+                      }}
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
                 </td>
               </tr>
               );
