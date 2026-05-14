@@ -5,7 +5,8 @@ PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 MQTT_PORT="${MQTT_PORT:-1883}"
 HTTP_PORT="${HTTP_PORT:-8080}"
-export MQTT_PORT HTTP_PORT
+MOSQUITTO_PID_FILE="${MOSQUITTO_PID_FILE:-/tmp/mosquitto-mqtt-parser.pid}"
+export MQTT_PORT HTTP_PORT MOSQUITTO_PID_FILE
 
 DATA_DIR="$(dirname "${SQLITE_PATH:-/data/mqtt-parser.db}")"
 mkdir -p "$DATA_DIR"
@@ -15,7 +16,7 @@ if [ "$(id -u)" = 0 ]; then
   chown -R "${PUID}:${PGID}" "$DATA_DIR" || true
 fi
 
-envsubst '${MQTT_PORT}' < /etc/mosquitto/mosquitto.conf.template > /etc/mosquitto/mosquitto.conf
+envsubst '${MQTT_PORT}:${MOSQUITTO_PID_FILE}' < /etc/mosquitto/mosquitto.conf.template > /etc/mosquitto/mosquitto.conf
 
 /app/scripts/mqtt-supervisor.sh &
 

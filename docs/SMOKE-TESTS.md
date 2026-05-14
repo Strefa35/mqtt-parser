@@ -4,8 +4,9 @@ This document shows the quickest way to build the container and verify that the 
 
 ## 1. Build and start
 
+Run the commands from the project root.
+
 ```bash
-cd /home/aczerwinski/workplace/mqtt-parser
 docker compose up --build -d
 ```
 

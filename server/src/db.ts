@@ -91,14 +91,17 @@ const DEFAULTS: Record<string, string> = {
 function migrateLegacyMqttClientSettings(db: Database.Database): void {
   const legacyH = getSetting(db, 'mqtt_client_host').trim();
   const legacyP = getSetting(db, 'mqtt_client_port').trim();
-  if (!legacyH) return;
-  if (!getSetting(db, 'mqtt_embedded_host').trim()) {
+  if (legacyH && !getSetting(db, 'mqtt_embedded_host').trim()) {
     setSetting(db, 'mqtt_embedded_host', legacyH);
-    if (legacyP) setSetting(db, 'mqtt_embedded_port', legacyP);
   }
-  if (!getSetting(db, 'mqtt_external_host').trim()) {
+  if (legacyP && !getSetting(db, 'mqtt_embedded_port').trim()) {
+    setSetting(db, 'mqtt_embedded_port', legacyP);
+  }
+  if (legacyH && !getSetting(db, 'mqtt_external_host').trim()) {
     setSetting(db, 'mqtt_external_host', legacyH);
-    if (legacyP) setSetting(db, 'mqtt_external_port', legacyP);
+  }
+  if (legacyP && !getSetting(db, 'mqtt_external_port').trim()) {
+    setSetting(db, 'mqtt_external_port', legacyP);
   }
 }
 

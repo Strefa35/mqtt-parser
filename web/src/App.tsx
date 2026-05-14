@@ -162,6 +162,7 @@ export default function App() {
   const mosquittoEnabledLive =
     config != null &&
     (headerHealth?.embeddedMqttBrokerEnabled ?? config.embeddedMqttBrokerEnabled);
+  const activeMqttProfileLive = headerHealth?.mqttActiveProfile ?? config?.mqttClient.activeProfile;
 
   return (
     <>
@@ -172,14 +173,14 @@ export default function App() {
             type="button"
             role="switch"
             className={`profile-mqtt-toggle ${
-              config?.mqttClient.activeProfile === 'external'
+              activeMqttProfileLive === 'external'
                 ? 'profile-mqtt-toggle--external'
                 : 'profile-mqtt-toggle--embedded'
             }`}
-            aria-checked={config?.mqttClient.activeProfile === 'external'}
+            aria-checked={activeMqttProfileLive === 'external'}
             aria-label={
-              config
-                ? `MQTT client profile: ${config.mqttClient.activeProfile}${
+              activeMqttProfileLive
+                ? `MQTT client profile: ${activeMqttProfileLive}${
                     headerHealth?.mqtt ? `, ${headerHealth.mqtt}` : ''
                   }`
                 : 'MQTT client profile'
@@ -187,8 +188,7 @@ export default function App() {
             disabled={headerBusy || !config}
             onClick={() =>
               void patchFromHeader({
-                mqttActiveProfile:
-                  config?.mqttClient.activeProfile === 'embedded' ? 'external' : 'embedded',
+                mqttActiveProfile: activeMqttProfileLive === 'embedded' ? 'external' : 'embedded',
               })
             }
           >
@@ -232,7 +232,7 @@ export default function App() {
               disabled={headerBusy || !config}
               onClick={() =>
                 void patchFromHeader({
-                  embeddedMqttBrokerEnabled: !config!.embeddedMqttBrokerEnabled,
+                  embeddedMqttBrokerEnabled: !mosquittoEnabledLive,
                 })
               }
             >

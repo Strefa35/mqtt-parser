@@ -53,8 +53,8 @@ export function ConfigView({
   ): { ok: true; value: number | '' } | { ok: false; err: string } => {
     if (raw.trim() === '') return { ok: true, value: '' };
     const p = Number(raw);
-    if (!Number.isFinite(p) || p <= 0 || p >= 65536) {
-      return { ok: false, err: `Invalid MQTT port (${label}).` };
+    if (!Number.isInteger(p) || p <= 0 || p >= 65536) {
+      return { ok: false, err: `Invalid MQTT port (${label}): expected an integer in range 1-65535.` };
     }
     return { ok: true, value: p };
   };
