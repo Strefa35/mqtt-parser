@@ -943,6 +943,7 @@ button.rule-on-toggle:hover {
   flex: 1 1 auto;
   min-height: 5rem;
   resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 /* Publish: compact primary button bottom-right, below Payload. */
@@ -1145,9 +1146,9 @@ label.publish-retain-label {
 }
 
 label.publish-history-select {
-  flex: 1;
-  min-width: min(100%, 11rem);
-  max-width: 21rem;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 label.publish-history-select select {
@@ -1179,6 +1180,7 @@ textarea {
   min-height: 4rem;
   width: 100%;
   max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 button:not(.rule-on-toggle):not(.live-payload-cell-toggle) {

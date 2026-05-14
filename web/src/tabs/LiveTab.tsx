@@ -42,9 +42,7 @@ function publishHistoryOptionLabel(e: Pick<PublishPreset, 'topic' | 'payload'>):
   const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
   const t = oneLine(e.topic);
   const pl = oneLine(e.payload);
-  const tShow = t.length > 48 ? `${t.slice(0, 47)}…` : t;
-  const pShow = pl.length > 36 ? `${pl.slice(0, 35)}…` : pl;
-  return `${tShow} — ${pShow}`;
+  return `${t} — ${pl}`;
 }
 
 const LS_LIVE_PUBLISH_SPLIT_PCT = 'mqttParser.livePublishSplitPct';
