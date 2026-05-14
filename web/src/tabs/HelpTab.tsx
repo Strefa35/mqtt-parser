@@ -49,9 +49,12 @@ export function HelpView() {
 
       <h3>Config</h3>
       <p>
-        Set the parser subscription pattern, default parse mode, and MQTT client connection to the
-        broker (host, port, credentials, protocol, keepalive). Empty host or port falls back to
-        container environment defaults. The host hint is display-only for operators.
+        Set the parser subscription pattern, default parse mode, and <strong>two</strong> MQTT client
+        profiles: <strong>embedded</strong> (in-container Mosquitto) and <strong>external</strong>{' '}
+        (another broker on the network). Each has its own host/port; empty values use documented
+        defaults (<code>127.0.0.1</code> + <code>MQTT_PORT</code> for embedded,{' '}
+        <code>MQTT_HOST</code> + <code>MQTT_PORT</code> for external). Username, password, protocol,
+        and keepalive are shared. The host hint is display-only for operators.
       </p>
 
       <h3>Logs</h3>
@@ -62,8 +65,19 @@ export function HelpView() {
 
       <h3>Header &amp; theme</h3>
       <p>
-        The header shows MQTT health and WebSocket status. Choose <strong>Theme</strong> in the tab
-        bar for dark, light, or system appearance (stored in the browser).
+        The header includes an <strong>Embedded / External</strong> toggle in the same style as the
+        Mosquitto switch (pill track + white knob); it uses theme accent blues instead of red/green.
+        Hover each label for a short tooltip. A small dot <strong>inside the sliding knob</strong> (right
+        when Embedded is selected, left when External) shows the <strong>MQTT client</strong> state for
+        the active broker (same meaning as <code>MQTT:</code>): <strong>green</strong> when connected,{' '}
+        <strong>red</strong> when disconnected, <strong>amber</strong> while health is loading or when
+        Embedded is on but Mosquitto has not started yet. There is also an{' '}
+        <strong>ON/OFF toggle</strong> for the in-container Mosquitto broker (green glow = on, red glow =
+        off; MQTT icon on the knob). Hover for a full tooltip. The dot and <code>MQTT:</code> line refresh
+        from <code>/api/health</code> every few seconds. <strong>WebSocket</strong> status is shown
+        separately. Choose <strong>Theme</strong>{' '}
+        in the tab bar for dark, light, or
+        system appearance (stored in the browser).
       </p>
     </section>
   );

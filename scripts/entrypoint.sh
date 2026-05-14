@@ -17,8 +17,7 @@ fi
 
 envsubst '${MQTT_PORT}' < /etc/mosquitto/mosquitto.conf.template > /etc/mosquitto/mosquitto.conf
 
-mosquitto -c /etc/mosquitto/mosquitto.conf -d
-sleep 1
+/app/scripts/mqtt-supervisor.sh &
 
 if [ "$(id -u)" = 0 ]; then
   exec setpriv --reuid="$PUID" --regid="$PGID" --init-groups -- node /app/dist/index.js

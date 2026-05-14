@@ -24,6 +24,10 @@ import {
   type MessageListFilter,
 } from './db.js';
 import { MqttBridge } from './mqtt-bridge.js';
+import {
+  isEmbeddedMosquittoProcessRunning,
+  syncEmbeddedMosquittoControlFile,
+} from './mosquitto-control.js';
 import { registerClient } from './ws-hub.js';
 
 type WebsocketRouteArg = WebSocket | { socket: WebSocket };
@@ -60,9 +64,17 @@ const SQLITE_PATH = process.env.SQLITE_PATH ?? '/data/mqtt-parser.db';
 const HTTP_PORT = envTcpPort('HTTP_PORT', DEFAULT_HTTP_PORT);
 const MQTT_HOST = process.env.MQTT_HOST ?? '127.0.0.1';
 const MQTT_PORT = envTcpPort('MQTT_PORT', DEFAULT_MQTT_PORT);
+const MOSQUITTO_PID_FILE = process.env.MOSQUITTO_PID_FILE ?? '/tmp/mosquitto-mqtt-parser.pid';
 const MAX_MESSAGE_BYTES = envMaxMessageBytes(DEFAULT_MAX_MESSAGE_BYTES);
 
 const db = openDb(SQLITE_PATH);
+
+function embeddedMqttBrokerDesired(): boolean {
+  return getSetting(db, 'embedded_mqtt_broker_enabled') === '1';
+}
+
+syncEmbeddedMosquittoControlFile(SQLITE_PATH, embeddedMqttBrokerDesired());
+
 const bridge = new MqttBridge(db, MQTT_HOST, MQTT_PORT, MAX_MESSAGE_BYTES);
 bridge.start();
 
@@ -70,10 +82,30 @@ const app = Fastify({ logger: true });
 
 await app.register(fastifyWebsocket);
 
+function mqttProfileBlock(profile: 'embedded' | 'external') {
+  const hostKey = profile === 'embedded' ? 'mqtt_embedded_host' : 'mqtt_external_host';
+  const portKey = profile === 'embedded' ? 'mqtt_embedded_port' : 'mqtt_external_port';
+  const storedH = getSetting(db, hostKey).trim();
+  const storedP = getSetting(db, portKey).trim();
+  const envFallbackHost = profile === 'embedded' ? '127.0.0.1' : MQTT_HOST;
+  return {
+    host: bridge.resolveHostForProfile(profile),
+    port: bridge.resolvePortForProfile(profile),
+    hostUsesEnvFallback: storedH === '',
+    portUsesEnvFallback: storedP === '',
+    envFallbackHost,
+    envFallbackPort: MQTT_PORT,
+  };
+}
+
 function configResponse() {
   const mc = bridge.getConnectionSummary();
-  const storedHost = getSetting(db, 'mqtt_client_host').trim();
-  const storedPort = getSetting(db, 'mqtt_client_port').trim();
+  const active = mc.activeProfile;
+  const activeHostKey = active === 'embedded' ? 'mqtt_embedded_host' : 'mqtt_external_host';
+  const activePortKey = active === 'embedded' ? 'mqtt_embedded_port' : 'mqtt_external_port';
+  const activeStoredH = getSetting(db, activeHostKey).trim();
+  const activeStoredP = getSetting(db, activePortKey).trim();
+  const activeEnvHost = active === 'embedded' ? '127.0.0.1' : MQTT_HOST;
   return {
     broker: {
       hostHint: getSetting(db, 'host_hint') || undefined,
@@ -86,15 +118,20 @@ function configResponse() {
     mqttClient: {
       host: mc.host,
       port: mc.port,
-      hostUsesEnvFallback: storedHost === '',
-      portUsesEnvFallback: storedPort === '',
-      envFallbackHost: MQTT_HOST,
+      hostUsesEnvFallback: activeStoredH === '',
+      portUsesEnvFallback: activeStoredP === '',
+      envFallbackHost: activeEnvHost,
       envFallbackPort: MQTT_PORT,
       username: mc.username,
       passwordSet: mc.passwordSet,
       protocol: mc.protocol,
       keepalive: mc.keepalive,
+      activeProfile: mc.activeProfile,
     },
+    mqttEmbedded: mqttProfileBlock('embedded'),
+    mqttExternal: mqttProfileBlock('external'),
+    embeddedMqttBrokerEnabled: embeddedMqttBrokerDesired(),
+    embeddedMqttBrokerRunning: isEmbeddedMosquittoProcessRunning(MOSQUITTO_PID_FILE),
     subscriptionPattern: getSetting(db, 'subscription_pattern'),
     defaultParseMode: getSetting(db, 'default_parse_mode'),
     sqlitePath: SQLITE_PATH,
@@ -132,6 +169,9 @@ app.get('/api/health', async () => {
       port: mc.port,
       tls: false,
     },
+    mqttActiveProfile: mc.activeProfile,
+    embeddedMqttBrokerEnabled: embeddedMqttBrokerDesired(),
+    embeddedMqttBrokerRunning: isEmbeddedMosquittoProcessRunning(MOSQUITTO_PID_FILE),
     limits: {
       maxMessageBytes: MAX_MESSAGE_BYTES,
     },
@@ -143,6 +183,53 @@ app.get('/api/config', async () => configResponse());
 app.patch<{ Body: Record<string, unknown> }>('/api/config', async (req) => {
   const body = req.body ?? {};
   let reconnectMqtt = false;
+
+  if (typeof body.embeddedMqttBrokerEnabled === 'boolean') {
+    setSetting(db, 'embedded_mqtt_broker_enabled', body.embeddedMqttBrokerEnabled ? '1' : '0');
+  }
+  if (body.mqttActiveProfile === 'embedded' || body.mqttActiveProfile === 'external') {
+    setSetting(db, 'mqtt_active_profile', body.mqttActiveProfile);
+    reconnectMqtt = true;
+  }
+
+  if (typeof body.mqttEmbeddedHost === 'string') {
+    setSetting(db, 'mqtt_embedded_host', body.mqttEmbeddedHost.trim());
+    if (bridge.getActiveProfile() === 'embedded') reconnectMqtt = true;
+  }
+  if (body.mqttEmbeddedPort !== undefined) {
+    if (body.mqttEmbeddedPort === '' || body.mqttEmbeddedPort === null) {
+      setSetting(db, 'mqtt_embedded_port', '');
+      if (bridge.getActiveProfile() === 'embedded') reconnectMqtt = true;
+    } else {
+      const p =
+        typeof body.mqttEmbeddedPort === 'number'
+          ? body.mqttEmbeddedPort
+          : Number(body.mqttEmbeddedPort);
+      if (Number.isFinite(p) && p > 0 && p < 65536) {
+        setSetting(db, 'mqtt_embedded_port', String(Math.floor(p)));
+        if (bridge.getActiveProfile() === 'embedded') reconnectMqtt = true;
+      }
+    }
+  }
+  if (typeof body.mqttExternalHost === 'string') {
+    setSetting(db, 'mqtt_external_host', body.mqttExternalHost.trim());
+    if (bridge.getActiveProfile() === 'external') reconnectMqtt = true;
+  }
+  if (body.mqttExternalPort !== undefined) {
+    if (body.mqttExternalPort === '' || body.mqttExternalPort === null) {
+      setSetting(db, 'mqtt_external_port', '');
+      if (bridge.getActiveProfile() === 'external') reconnectMqtt = true;
+    } else {
+      const p =
+        typeof body.mqttExternalPort === 'number'
+          ? body.mqttExternalPort
+          : Number(body.mqttExternalPort);
+      if (Number.isFinite(p) && p > 0 && p < 65536) {
+        setSetting(db, 'mqtt_external_port', String(Math.floor(p)));
+        if (bridge.getActiveProfile() === 'external') reconnectMqtt = true;
+      }
+    }
+  }
 
   if (typeof body.subscriptionPattern === 'string' && body.subscriptionPattern.trim()) {
     setSetting(db, 'subscription_pattern', body.subscriptionPattern.trim());
@@ -159,12 +246,20 @@ app.patch<{ Body: Record<string, unknown> }>('/api/config', async (req) => {
   }
 
   if (typeof body.mqttClientHost === 'string') {
-    setSetting(db, 'mqtt_client_host', body.mqttClientHost.trim());
+    const k =
+      getSetting(db, 'mqtt_active_profile').trim() === 'external'
+        ? 'mqtt_external_host'
+        : 'mqtt_embedded_host';
+    setSetting(db, k, body.mqttClientHost.trim());
     reconnectMqtt = true;
   }
   if (body.mqttClientPort !== undefined) {
+    const k =
+      getSetting(db, 'mqtt_active_profile').trim() === 'external'
+        ? 'mqtt_external_port'
+        : 'mqtt_embedded_port';
     if (body.mqttClientPort === '' || body.mqttClientPort === null) {
-      setSetting(db, 'mqtt_client_port', '');
+      setSetting(db, k, '');
       reconnectMqtt = true;
     } else {
       const p =
@@ -172,7 +267,7 @@ app.patch<{ Body: Record<string, unknown> }>('/api/config', async (req) => {
           ? body.mqttClientPort
           : Number(body.mqttClientPort);
       if (Number.isFinite(p) && p > 0 && p < 65536) {
-        setSetting(db, 'mqtt_client_port', String(Math.floor(p)));
+        setSetting(db, k, String(Math.floor(p)));
         reconnectMqtt = true;
       }
     }
@@ -206,6 +301,8 @@ app.patch<{ Body: Record<string, unknown> }>('/api/config', async (req) => {
   if (reconnectMqtt) {
     bridge.restartConnection();
   }
+
+  syncEmbeddedMosquittoControlFile(SQLITE_PATH, embeddedMqttBrokerDesired());
 
   return configResponse();
 });

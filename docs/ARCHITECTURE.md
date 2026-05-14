@@ -6,8 +6,9 @@ This document describes how **MQTT Parser** is structured at runtime and in code
 
 MQTT Parser is a **single container** that runs:
 
-1. **Eclipse Mosquitto** — MQTT broker for devices and local subscribers.
-2. **Node.js server** — HTTP API, static SPA, WebSocket hub, SQLite access, and an **MQTT client** that subscribes to the broker and applies rules.
+1. **`mqtt-supervisor.sh`** — background loop (started from the entrypoint) that starts or stops **Eclipse Mosquitto** according to a control file under the SQLite data directory (written by Node from SQLite settings), so the bundled broker can be toggled at runtime without restarting the container.
+2. **Eclipse Mosquitto** — optional in-container MQTT broker (when enabled).
+3. **Node.js server** — HTTP API, static SPA, WebSocket hub, SQLite access, and an **MQTT client** that subscribes using either an **embedded** or **external** connection profile and applies rules.
 
 ```mermaid
 flowchart LR
@@ -143,21 +144,22 @@ sequenceDiagram
 
 1. **`entrypoint.sh`** (see `scripts/entrypoint.sh`):
    - Ensures the SQLite directory exists and `chown`s it to `PUID`/`PGID` when running as root.
-   - Renders `config/mosquitto.conf.template` with `envsubst` → `/etc/mosquitto/mosquitto.conf`.
-   - Starts **Mosquitto** in the background.
+   - Renders `config/mosquitto.conf.template` with `envsubst` → `/etc/mosquitto/mosquitto.conf` (includes `pid_file` for clean stop/start).
+   - Starts **`mqtt-supervisor.sh`** in the background (see `scripts/mqtt-supervisor.sh`); the supervisor polls **`${SQLITE_DIR}/.run_embedded_mosquitto`** (`1` = run Mosquitto, `0` = stop).
    - **`exec`**s the Node app as non-root via `setpriv` (`PUID`/`PGID`), so files under `/data` are not owned by root on the host.
 
-2. **Mosquitto** listens on `0.0.0.0:${MQTT_PORT}` (default **1883**). The bundled template enables anonymous access (suitable for lab/trusted LANs only).
+2. **Mosquitto** (when the supervisor starts it) listens on `0.0.0.0:${MQTT_PORT}` (default **1883**). The bundled template enables anonymous access (suitable for lab/trusted LANs only).
 
-3. **Node** runs the compiled server (`dist/index.js` after `npm run build`), listens on `HTTP_PORT` (default **8080**), and connects to the broker using `MQTT_HOST` / `MQTT_PORT` unless overridden in SQLite settings / Config UI.
+3. **Node** runs the compiled server (`dist/index.js` after `npm run build`), listens on `HTTP_PORT` (default **8080**), syncs the control file on startup and after config changes, and connects its MQTT client using the **active profile** (`embedded` or `external`) and per-profile host/port in SQLite (with defaults: embedded → `127.0.0.1` + `MQTT_PORT`; external → `MQTT_HOST` + `MQTT_PORT` when fields are empty).
 
 ## Backend (`server/`)
 
 | Module | Role |
-|--------|------|
+| -------- | ------ |
 | `src/index.ts` | Application composition: Fastify app, registers REST routes, WebSocket, static `public/`, SPA fallback to `index.html`. |
 | `src/db.ts` | **better-sqlite3**: schema bootstrap, settings, messages, rules, app logs, publish presets. WAL mode. |
-| `src/mqtt-bridge.ts` | **`MqttBridge`**: MQTT client (`mqtt` package), subscription pattern from settings, inbound message pipeline, outbound publish, reconnect on config change. |
+| `src/mosquitto-control.ts` | Writes **`.run_embedded_mosquitto`**; optional **running** check via `/proc` (avoids `kill(0)` EPERM vs root Mosquitto). |
+| `src/mqtt-bridge.ts` | **`MqttBridge`**: MQTT client (`mqtt` package), active **embedded** / **external** profile, subscription pattern from settings, inbound pipeline, outbound publish, reconnect on config change. |
 | `src/ws-hub.ts` | In-memory `Set` of WebSocket clients; `broadcast(event, data)` JSON-lines to browsers. |
 | `src/parser.ts` | Payload display (UTF-8 vs hex), parse modes `auto` / `json` / `text` / `hex`, JSON for `parsed_json` column. |
 | `src/topic-match.ts` | MQTT topic filter matching (`+`, `#`). |
@@ -177,12 +179,12 @@ sequenceDiagram
 
 ### Configuration
 
-- Operator settings live in SQLite **`settings`** (subscription pattern, MQTT client host/port/credentials, protocol version, keepalive, parse mode, host hint).
-- **`PATCH /api/config`** updates settings and may call **`reloadSubscription()`** or **`restartConnection()`** on `MqttBridge`.
+- Operator settings live in SQLite **`settings`**: subscription pattern, parse mode, host hint, shared MQTT credentials (`mqtt_username`, `mqtt_password`, `mqtt_protocol`, `mqtt_keepalive`), **`embedded_mqtt_broker_enabled`**, **`mqtt_active_profile`**, and per-profile **`mqtt_embedded_*` / `mqtt_external_*`** host and port. Legacy **`mqtt_client_*`** keys are migrated into the profile keys on database open when still in use.
+- **`PATCH /api/config`** updates settings, syncs the Mosquitto control file, and may call **`reloadSubscription()`** or **`restartConnection()`** on `MqttBridge`.
 
 ## Frontend (`web/`)
 
-- **Vite + React + TypeScript**. Production build output is copied into **`server/public/`** in the Docker image (see Dockerfile `COPY --from=web`).
+- **Vite + React + TypeScript**. Production build output is copied into **`/app/public`** in the Docker image (see Dockerfile `COPY --from=web`).
 - **`src/api.ts`** — typed fetch helpers for `/api/*`.
 - **`src/hooks/useWebSocket.ts`** — connects to `/ws`, dispatches `message` and `log` events.
 - **Tabs** (Live, History, Config, Logs, Help) map to the areas described in [REQUIREMENTS.md](REQUIREMENTS.md).
@@ -195,10 +197,12 @@ sequenceDiagram
 ## Networking and ports
 
 | Port / variable | Purpose |
-|-----------------|--------|
+| ----------------- | -------- |
 | `MQTT_PORT` | Mosquitto listener inside the container; map on the host for devices. |
 | `HTTP_PORT` | Fastify + static + WebSocket. |
-| `MQTT_HOST` | Default target for the **app** MQTT client when UI fields are empty (typically `127.0.0.1` in-container). |
+| `MQTT_HOST` | Default broker host for the **external** profile when its host field is empty; also the Node constructor fallback for non-embedded resolution. |
+| `MOSQUITTO_PID_FILE` | Optional override (default `/tmp/mosquitto-mqtt-parser.pid`) for health/running checks; must match Mosquitto `pid_file` in generated config. |
+| `MOSQUITTO_SUPERVISOR_INTERVAL` | Optional seconds between supervisor polls (default `2`). |
 
 ## Build and delivery
 

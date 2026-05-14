@@ -52,18 +52,37 @@ export class MqttBridge {
     broadcast('log', { level, message, meta, at: Date.now() });
   }
 
-  /** Effective host for the app MQTT client (settings override env). */
-  resolveHost(): string {
-    const s = getSetting(this.db, 'mqtt_client_host').trim();
-    return s || this.envHost;
+  getActiveProfile(): 'embedded' | 'external' {
+    return getSetting(this.db, 'mqtt_active_profile').trim() === 'external'
+      ? 'external'
+      : 'embedded';
   }
 
-  /** Effective port for the app MQTT client (settings override env). */
-  resolvePort(): number {
-    const s = getSetting(this.db, 'mqtt_client_port').trim();
+  /** Host for a profile (embedded defaults to loopback; external defaults to MQTT_HOST env). */
+  resolveHostForProfile(profile: 'embedded' | 'external'): string {
+    const key = profile === 'embedded' ? 'mqtt_embedded_host' : 'mqtt_external_host';
+    const s = getSetting(this.db, key).trim();
+    if (s) return s;
+    if (profile === 'embedded') return '127.0.0.1';
+    return this.envHost;
+  }
+
+  resolvePortForProfile(profile: 'embedded' | 'external'): number {
+    const key = profile === 'embedded' ? 'mqtt_embedded_port' : 'mqtt_external_port';
+    const s = getSetting(this.db, key).trim();
     if (s === '') return this.envPort;
     const n = Number(s);
     return Number.isFinite(n) && n > 0 && n < 65536 ? n : this.envPort;
+  }
+
+  /** Effective host for the active MQTT client profile. */
+  resolveHost(): string {
+    return this.resolveHostForProfile(this.getActiveProfile());
+  }
+
+  /** Effective port for the active MQTT client profile. */
+  resolvePort(): number {
+    return this.resolvePortForProfile(this.getActiveProfile());
   }
 
   getConnectionSummary(): {
@@ -73,6 +92,7 @@ export class MqttBridge {
     username: string;
     passwordSet: boolean;
     keepalive: number;
+    activeProfile: 'embedded' | 'external';
   } {
     const proto = getSetting(this.db, 'mqtt_protocol').trim();
     const protocol = proto === '5' ? '5' : '3.1.1';
@@ -85,6 +105,7 @@ export class MqttBridge {
       username: user,
       passwordSet: pass.length > 0,
       keepalive: parseKeepalive(getSetting(this.db, 'mqtt_keepalive')),
+      activeProfile: this.getActiveProfile(),
     };
   }
 

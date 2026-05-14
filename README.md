@@ -10,6 +10,8 @@ Default **Live & Publish** view: live feed (left) and **Publish** / **Rules** su
 
 See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for the full product specification, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for runtime and code layout, and [docs/API.md](docs/API.md) for the HTTP and WebSocket API.
 
+For a quick build-and-verify checklist, see [docs/SMOKE-TESTS.md](docs/SMOKE-TESTS.md).
+
 ## Quick start
 
 ```bash
@@ -20,11 +22,13 @@ docker compose up --build
 - **MQTT:** broker listens on container port **1883** — map it for devices, e.g. `-p 1883:1883`
 - **SQLite:** the compose file mounts **`./data`** on the host → you get `data/mqtt-parser.db` (and optional `-wal`/`-shm`) in the project folder after the first run.
 - **File ownership:** the web app runs as **`PUID`/`PGID`** (default `1000:1000`) so `data/` is not owned by root on the host. Set them to match your user, e.g. create a `.env` next to `docker-compose.yml`:
+
   ```bash
   echo "PUID=$(id -u)" >> .env
   echo "PGID=$(id -g)" >> .env
   ```
-  Mosquitto still starts as root inside the container; only the Node process drops privileges.
+
+  **Mosquitto** is started/stopped by **`mqtt-supervisor.sh`** (root), which follows a control file written next to SQLite; the **Node** process drops privileges to **`PUID`/`PGID`**.
 
 ### Plain Docker
 
@@ -59,28 +63,30 @@ docker run --rm \
 ## Environment variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| ---------- | --------- | ------------- |
 | `PUID` | `1000` | Unix UID for the **Node** process (SQLite writer); should match host user for `./data` ownership |
 | `PGID` | `1000` | Unix GID for the **Node** process |
 | `HTTP_PORT` | `8080` | Web server listen port inside the container |
 | `MQTT_PORT` | `1883` | Mosquitto listener port (must match app) |
-| `MQTT_HOST` | `127.0.0.1` | Default broker host for the **app** MQTT client when the UI field is empty |
+| `MQTT_HOST` | `127.0.0.1` | Default broker host for the **external** client profile when its host field is empty |
 | `SQLITE_PATH` | `/data/mqtt-parser.db` | SQLite database file path |
 | `MAX_MESSAGE_BYTES` | `262144` | Drop inbound MQTT payloads larger than this (bytes) |
+| `MOSQUITTO_PID_FILE` | `/tmp/mosquitto-mqtt-parser.pid` | PID file used by `mqtt-supervisor.sh` and API running-state checks; must match Mosquitto `pid_file` |
+| `MOSQUITTO_SUPERVISOR_INTERVAL` | `2` | Poll interval (seconds) for `mqtt-supervisor.sh` control loop |
 
 If you change `HTTP_PORT` or `MQTT_PORT`, publish the same ports with `-p` / `compose` accordingly.
 
-**Broker vs app client:** Mosquitto listens on `MQTT_PORT` inside the container. The parser’s MQTT client (configurable in the **Config** UI or via `PATCH /api/config`) must target that same host/port **unless** you intentionally use an external broker. Empty host/port in the UI means “use `MQTT_HOST` / `MQTT_PORT` from the environment.”
+**Broker vs profiles:** Mosquitto (when enabled) listens on `MQTT_PORT` inside the container. The parser stores two client profiles — **embedded** (defaults to `127.0.0.1` + `MQTT_PORT` when fields are empty) and **external** (defaults to `MQTT_HOST` + `MQTT_PORT`). The **header** and **`PATCH /api/config`** choose the active profile and whether the in-container Mosquitto process should run (`mqtt-supervisor.sh` polls `<sqlite-dir>/.run_embedded_mosquitto`, written by Node).
 
 ## Web UI
 
 Tabs (left to right): **Live & Publish** · **History** · **Config** · **Logs** · **Help**.
 
 | Tab | Notes |
-|-----|--------|
+| ----- | -------- |
 | **Live & Publish** | **Vertical split**: live feed (WebSocket, last 500) and a right panel with **Publish** / **Rules** sub-tabs. Draggable divider ratio: `mqttParser.livePublishSplitPct`. Rules: **On** dot toggles enable/disable; edit/delete per row. |
 | **History** | Paginated SQLite messages, filters, bulk and filter delete. Columns: fixed checkbox · **ID** · Time · Topic · Payload · fixed delete. Resize grips on **ID**, **Time**, **Topic** only (`mqttParser.historyTableColPcts`). Full-viewport layout. |
-| **Config** | Subscription pattern, parse mode, MQTT client to broker, host hint. |
+| **Config** | Subscription pattern, parse mode, embedded + external MQTT client profiles (shared auth), host hint. Use the header for active profile and container Mosquitto on/off. |
 | **Logs** | Application logs from SQLite; periodic refresh and manual refresh. |
 | **Help** | In-app usage guide (payload toggle, column resize, publish presets, rules templates, etc.). |
 
@@ -158,7 +164,7 @@ After cleaning, run again with `docker compose up --build`, or reinstall locally
 ## Project layout
 
 - `config/` — Mosquitto template rendered at start (`MQTT_PORT`)  
-- `scripts/entrypoint.sh` — starts Mosquitto, then Node  
+- `scripts/entrypoint.sh` — prepares runtime, starts `mqtt-supervisor.sh`, then runs Node as `PUID`/`PGID`  
 - `scripts/clean.sh` — removes local `node_modules`, `dist`, `data`, runs `docker compose down` (optional `--rmi`, `--prune`)  
 - `server/` — Fastify API, MQTT client, SQLite, rules engine  
 - `web/` — React + Vite UI (`src/tabs/*.tsx` — Live, History, Config, Logs, Help; `App.tsx` shell)  

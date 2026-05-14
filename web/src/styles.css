@@ -163,7 +163,7 @@ a {
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.75rem 1rem;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border);
   background: var(--nav-chrome-bg);
@@ -174,6 +174,345 @@ a {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.header-toolbar {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.header-toolbar > * {
+  flex-shrink: 0;
+}
+
+.header-toolbar .header-err {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/*
+ * MQTT profile (Embedded / External): same interaction pattern as mosquitto-power-toggle —
+ * pill track, white circular knob, bold caps-style labels; colors follow theme accent (not red/green).
+ */
+.profile-mqtt-toggle {
+  display: block;
+  flex-shrink: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: 0;
+}
+
+.profile-mqtt-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.profile-mqtt-toggle:focus-visible .profile-mqtt-toggle-track {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, var(--border));
+  outline-offset: 2px;
+}
+
+.profile-mqtt-toggle-track {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  /* Was 11rem; shortened by 40% → 60% width */
+  width: 6.6rem;
+  min-width: 6.6rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.profile-mqtt-toggle--embedded .profile-mqtt-toggle-track {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 72%, #ffffff) 0%,
+    var(--accent) 100%
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 40%, rgba(15, 23, 42, 0.25)),
+    0 0 10px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 20px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.profile-mqtt-toggle--external .profile-mqtt-toggle-track {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 38%, #64748b) 0%,
+    color-mix(in srgb, var(--accent) 78%, #1e293b) 100%
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 28%, var(--border)),
+    0 0 8px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 0 16px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.profile-mqtt-toggle-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: calc(0.62rem + 1px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.profile-mqtt-toggle-label--emb {
+  left: 0.35rem;
+}
+
+/* Sit in the right half, inset from the edge (matches visual balance of OFF on Mosquitto). */
+.profile-mqtt-toggle-label--ext {
+  right: 1.2rem;
+}
+
+.profile-mqtt-toggle--embedded .profile-mqtt-toggle-label--emb {
+  opacity: 1;
+}
+
+.profile-mqtt-toggle--embedded .profile-mqtt-toggle-label--ext {
+  opacity: 0;
+}
+
+.profile-mqtt-toggle--external .profile-mqtt-toggle-label--emb {
+  opacity: 0;
+}
+
+.profile-mqtt-toggle--external .profile-mqtt-toggle-label--ext {
+  opacity: 1;
+}
+
+.profile-mqtt-toggle-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.75rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.2);
+  transition:
+    left 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s ease;
+  pointer-events: none;
+  line-height: 0;
+}
+
+/* Same geometry as mosquitto-power-toggle: Embedded ⇔ knob right; External ⇔ knob left. */
+.profile-mqtt-toggle--embedded .profile-mqtt-toggle-knob {
+  left: calc(100% - 1.5rem - 3px);
+}
+
+.profile-mqtt-toggle--external .profile-mqtt-toggle-knob {
+  left: 3px;
+}
+
+/* Status colors live inside the profile knob (moves with Embedded ⇄ External). */
+.profile-mqtt-toggle-knob .mqtt-client-status-dot {
+  position: absolute;
+  /* 5% inset each side => 90% diameter, geometrically centered in the square knob box */
+  inset: 5%;
+  width: auto;
+  height: auto;
+  border-radius: 50%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+
+.profile-mqtt-toggle-knob .mqtt-client-status-dot.on {
+  /* Brighter than global --ok so the small knob dot reads clearly on white */
+  --profile-dot-ok: color-mix(in srgb, var(--ok) 42%, #86efac);
+  background: var(--profile-dot-ok);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--profile-dot-ok) 58%, transparent);
+}
+
+.profile-mqtt-toggle-knob .mqtt-client-status-dot.off {
+  background: #dc2626;
+  box-shadow: 0 0 10px color-mix(in srgb, #f87171 50%, transparent);
+}
+
+.profile-mqtt-toggle-knob .mqtt-client-status-dot.warn {
+  background: #f59e0b;
+  box-shadow: 0 0 10px color-mix(in srgb, #f59e0b 50%, transparent);
+}
+
+/* In-container Mosquitto: ON/OFF pill (green on, red off + glow) + knob with MQTT icon. */
+.mosquitto-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.mosquitto-power-toggle {
+  display: block;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: 0;
+}
+
+.mosquitto-power-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mosquitto-power-toggle:focus-visible .mosquitto-power-toggle-track {
+  outline: 2px solid color-mix(in srgb, var(--text) 65%, var(--border));
+  outline-offset: 2px;
+}
+
+.mosquitto-power-toggle-track {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 5.45rem;
+  min-width: 5.45rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.mosquitto-power-toggle--off .mosquitto-power-toggle-track {
+  background: linear-gradient(180deg, #f87171 0%, #b91c1c 55%, #991b1b 100%);
+  box-shadow:
+    0 0 0 1px rgba(127, 29, 29, 0.45),
+    0 0 10px rgba(248, 113, 113, 0.65),
+    0 0 22px rgba(220, 38, 38, 0.45);
+}
+
+.mosquitto-power-toggle--on .mosquitto-power-toggle-track {
+  background: linear-gradient(180deg, #86efac 0%, #22c55e 45%, #15803d 100%);
+  box-shadow:
+    0 0 0 1px rgba(21, 128, 61, 0.45),
+    0 0 10px rgba(74, 222, 128, 0.65),
+    0 0 22px rgba(34, 197, 94, 0.45);
+}
+
+.mosquitto-power-toggle-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: calc(0.62rem + 1px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.mosquitto-power-toggle-label--on {
+  left: 0.52rem;
+}
+
+.mosquitto-power-toggle-label--off {
+  right: 0.48rem;
+}
+
+.mosquitto-power-toggle--off .mosquitto-power-toggle-label--on {
+  opacity: 0;
+}
+
+.mosquitto-power-toggle--off .mosquitto-power-toggle-label--off {
+  opacity: 1;
+}
+
+.mosquitto-power-toggle--on .mosquitto-power-toggle-label--on {
+  opacity: 1;
+}
+
+.mosquitto-power-toggle--on .mosquitto-power-toggle-label--off {
+  opacity: 0;
+}
+
+.mosquitto-power-toggle-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.75rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    left 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s ease;
+}
+
+.mosquitto-power-toggle--off .mosquitto-power-toggle-knob {
+  left: 3px;
+  color: #991b1b;
+}
+
+.mosquitto-power-toggle--on .mosquitto-power-toggle-knob {
+  left: calc(100% - 1.5rem - 3px);
+  color: #166534;
+}
+
+.mosquitto-toggle-knob-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.header-mqtt-line {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  /* Reserve width for longest label so the toolbar does not shift when MQTT state changes. */
+  display: inline-block;
+  min-width: 12.25rem;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.header-toolbar .ws-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 9.5rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.header-err {
+  font-size: 0.75rem;
+  color: var(--danger);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ws-pill {

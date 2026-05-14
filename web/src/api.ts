@@ -26,6 +26,15 @@ async function j<T>(input: Response | Promise<Response>): Promise<T> {
   return body as T;
 }
 
+export type MqttProfileConfig = {
+  host: string;
+  port: number;
+  hostUsesEnvFallback: boolean;
+  portUsesEnvFallback: boolean;
+  envFallbackHost: string;
+  envFallbackPort: number;
+};
+
 export type MqttClientConfig = {
   host: string;
   port: number;
@@ -37,6 +46,7 @@ export type MqttClientConfig = {
   passwordSet: boolean;
   protocol: '3.1.1' | '5';
   keepalive: number;
+  activeProfile: 'embedded' | 'external';
 };
 
 export type Config = {
@@ -48,20 +58,46 @@ export type Config = {
     anonymous: boolean;
   };
   mqttClient: MqttClientConfig;
+  mqttEmbedded: MqttProfileConfig;
+  mqttExternal: MqttProfileConfig;
+  embeddedMqttBrokerEnabled: boolean;
+  embeddedMqttBrokerRunning: boolean;
   subscriptionPattern: string;
   defaultParseMode: string;
   sqlitePath: string;
   httpPort: number;
 };
 
+function isMqttProfileBlock(o: unknown): o is MqttProfileConfig {
+  if (!o || typeof o !== 'object') return false;
+  const x = o as Record<string, unknown>;
+  return (
+    typeof x.host === 'string' &&
+    typeof x.port === 'number' &&
+    typeof x.hostUsesEnvFallback === 'boolean' &&
+    typeof x.portUsesEnvFallback === 'boolean' &&
+    typeof x.envFallbackHost === 'string' &&
+    typeof x.envFallbackPort === 'number'
+  );
+}
+
 function isConfig(o: unknown): o is Config {
   if (!o || typeof o !== 'object') return false;
   const c = o as Record<string, unknown>;
+  const mc = c.mqttClient;
+  if (mc == null || typeof mc !== 'object') return false;
+  const m = mc as Record<string, unknown>;
   return (
-    c.mqttClient != null &&
-    typeof c.mqttClient === 'object' &&
     c.broker != null &&
-    typeof c.broker === 'object'
+    typeof c.broker === 'object' &&
+    typeof m.host === 'string' &&
+    typeof m.port === 'number' &&
+    typeof m.activeProfile === 'string' &&
+    (m.activeProfile === 'embedded' || m.activeProfile === 'external') &&
+    isMqttProfileBlock(c.mqttEmbedded) &&
+    isMqttProfileBlock(c.mqttExternal) &&
+    typeof c.embeddedMqttBrokerEnabled === 'boolean' &&
+    typeof c.embeddedMqttBrokerRunning === 'boolean'
   );
 }
 
@@ -235,10 +271,15 @@ export function publishMqtt(body: {
   );
 }
 
+export type AppHealth = {
+  ok: boolean;
+  mqtt: string;
+  broker: { host: string; port: number; tls: boolean };
+  mqttActiveProfile?: 'embedded' | 'external';
+  embeddedMqttBrokerEnabled: boolean;
+  embeddedMqttBrokerRunning: boolean;
+};
+
 export function getHealth() {
-  return j<{
-    ok: boolean;
-    mqtt: string;
-    broker: { host: string; port: number; tls: boolean };
-  }>(fetch(apiUrl('/api/health')));
+  return j<AppHealth>(fetch(apiUrl('/api/health')));
 }

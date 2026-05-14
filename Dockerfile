@@ -29,7 +29,8 @@ COPY --from=web /w/dist ./public
 
 COPY config/mosquitto.conf.template /etc/mosquitto/mosquitto.conf.template
 COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scripts/mqtt-supervisor.sh /app/scripts/mqtt-supervisor.sh
+RUN chmod +x /entrypoint.sh /app/scripts/mqtt-supervisor.sh
 
 ENV SQLITE_PATH=/data/mqtt-parser.db \
     HTTP_PORT=8080 \

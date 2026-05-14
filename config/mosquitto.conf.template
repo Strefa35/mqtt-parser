@@ -1,4 +1,5 @@
 # Generated at container start from template (envsubst).
+pid_file /tmp/mosquitto-mqtt-parser.pid
 listener ${MQTT_PORT} 0.0.0.0
 allow_anonymous true
 persistence false
