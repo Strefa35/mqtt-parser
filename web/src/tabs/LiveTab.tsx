@@ -454,7 +454,7 @@ function PublishView({ inSplit }: { inSplit?: boolean }) {
     try {
       await api.publishMqtt({ topic, payload, qos, retain });
       await loadPresets(false);
-      setMsg('Published.');
+      setMsg(null);
     } catch (e) {
       setMsg(String(e));
     }

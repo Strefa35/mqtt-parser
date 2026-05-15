@@ -4,13 +4,22 @@ export function fmtTime(ms: number) {
 
 /** Normalize payload text for compact plain-text display. */
 function normalizePlainPayload(payloadDisplay: string): string {
-  try {
-    // Valid JSON should be shown as compact one-line text in plain mode.
-    return JSON.stringify(JSON.parse(payloadDisplay));
-  } catch {
-    // Non-JSON payloads keep content but collapse formatting whitespace.
-    return payloadDisplay.replace(/\s+/g, ' ').trim();
+  const trimmed = payloadDisplay.trim();
+  // Cheap heuristic: only attempt JSON parse when the string looks JSON-like,
+  // avoiding repeated throws for hex strings, plain values, etc.
+  const looksLikeJson =
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'));
+  if (looksLikeJson) {
+    try {
+      // Valid JSON should be shown as compact one-line text in plain mode.
+      return JSON.stringify(JSON.parse(trimmed));
+    } catch {
+      // Malformed JSON-like string — fall through to whitespace collapse.
+    }
   }
+  // Non-JSON payloads keep content but collapse formatting whitespace.
+  return trimmed.replace(/\s+/g, ' ');
 }
 
 export function formatPayloadForDisplay(

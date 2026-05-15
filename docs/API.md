@@ -40,6 +40,22 @@ Liveness and MQTT client status.
 
 ---
 
+## `GET /api/docker-host`
+
+Docker host address information (for device connection hints).
+
+### Response 200 (docker-host)
+
+```json
+{
+  "hostAddress": "192.168.1.100"
+}
+```
+
+`hostAddress` is the IP address or hostname of the Docker host as detected from the `DOCKER_HOST` environment variable or fallback IP resolution. External MQTT clients should use this address (plus the published `MQTT_PORT`) to connect to the embedded broker from outside the container.
+
+---
+
 ## `GET /api/config`
 
 Returns current operator and broker-client settings.

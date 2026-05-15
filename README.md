@@ -100,7 +100,7 @@ The default image uses **non-TLS MQTT** and **anonymous** broker access, suitabl
 
 Full reference: **[docs/API.md](docs/API.md)** (REST + WebSocket). Short list:
 
-- `GET /api/health` · `GET` \| `PATCH /api/config` · `GET /api/messages` · `DELETE /api/messages/:id` · `POST /api/messages/delete-bulk` · `POST /api/messages/delete-by-filter`
+- `GET /api/health` · `GET /api/docker-host` · `GET` \| `PATCH /api/config` · `GET /api/messages` · `DELETE /api/messages/:id` · `POST /api/messages/delete-bulk` · `POST /api/messages/delete-by-filter`
 - `GET /api/logs` · `GET` / `POST` / `PATCH` / `DELETE` **`/api/rules`** and **`/api/rules/:id`**
 - `GET /api/publish-presets` · `POST /api/publish` · `GET /ws`
 

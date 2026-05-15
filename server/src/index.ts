@@ -179,9 +179,9 @@ app.get('/api/health', async () => {
   };
 });
 
-app.get('/api/host-info', async () => {
+app.get('/api/docker-host', async () => {
   return {
-    hostIp: DOCKER_HOST_IP,
+    hostAddress: DOCKER_HOST_IP,
   };
 });
 

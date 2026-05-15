@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import * as api from '../api';
 
 export function HelpView() {
-  const [hostIp, setHostIp] = useState<string | null>(null);
-  const [hostIpError, setHostIpError] = useState<string | null>(null);
+  const [hostAddress, setHostAddress] = useState<string | null>(null);
+  const [hostAddressError, setHostAddressError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         const info = await api.getHostInfo();
-        setHostIp(info.hostIp);
+        setHostAddress(info.hostAddress);
       } catch (e) {
-        setHostIpError(String(e));
+        setHostAddressError(String(e));
       }
     })();
   }, []);
@@ -99,12 +99,12 @@ export function HelpView() {
 
       <h3>Docker Host</h3>
       <p>
-        {hostIpError ? (
-          <span style={{ color: 'var(--danger)' }}>Error: {hostIpError}</span>
-        ) : hostIp ? (
-          <>Docker host IP: <code>{hostIp}</code></>
+        {hostAddressError ? (
+          <span style={{ color: 'var(--danger)' }}>Error: {hostAddressError}</span>
+        ) : hostAddress ? (
+          <>Docker host address: <code>{hostAddress}</code></>
         ) : (
-          <em>Loading host IP...</em>
+          <em>Loading host address...</em>
         )}
       </p>
     </section>

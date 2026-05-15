@@ -292,7 +292,7 @@ export type AppHealth = {
 };
 
 export type HostInfo = {
-  hostIp: string;
+  hostAddress: string;
 };
 
 export function getHealth() {
@@ -300,5 +300,5 @@ export function getHealth() {
 }
 
 export function getHostInfo() {
-  return j<HostInfo>(fetch(apiUrl('/api/host-info')));
+  return j<HostInfo>(fetch(apiUrl('/api/docker-host')));
 }

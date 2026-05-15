@@ -171,19 +171,18 @@ export default function App() {
         <div className="header-toolbar">
           <button
             type="button"
-            role="switch"
             className={`profile-mqtt-toggle ${
               activeMqttProfileLive === 'external'
                 ? 'profile-mqtt-toggle--external'
                 : 'profile-mqtt-toggle--embedded'
             }`}
-            aria-checked={activeMqttProfileLive === 'external'}
+            aria-pressed={activeMqttProfileLive === 'external'}
             aria-label={
               activeMqttProfileLive
-                ? `MQTT client profile: ${activeMqttProfileLive}${
+                ? `Toggle MQTT client profile: currently ${activeMqttProfileLive}${
                     headerHealth?.mqtt ? `, ${headerHealth.mqtt}` : ''
                   }`
-                : 'MQTT client profile'
+                : 'Toggle MQTT client profile'
             }
             disabled={headerBusy || !config}
             onClick={() =>

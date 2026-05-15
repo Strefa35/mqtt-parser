@@ -20,7 +20,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - **Dockerfile** — copies and chmods `mqtt-supervisor.sh`; **entrypoint** starts the supervisor instead of always starting Mosquitto directly.
 - **`config/mosquitto.conf.template`** — sets **`pid_file`** for clean stop/start by the supervisor.
 - **`MqttBridge`** — reconnects using the active profile; config patches sync the Mosquitto control file.
-- **Documentation** — `README.md`, `docs/API.md`, and `docs/ARCHITECTURE.md` updated for profiles, supervisor, and new environment variables (`MOSQUITTO_PID_FILE`, `MOSQUITTO_SUPERVISOR_INTERVAL`, clarified `MQTT_HOST`).
+- **API**: `/api/host-info` endpoint renamed to `/api/docker-host`; response field `hostIp` renamed to `hostAddress` for semantic clarity.
+- **Web UI**: accessibility improvements — `role="switch"` and `aria-checked` replaced with `aria-pressed` for MQTT profile toggle button; tooltip pointer events fixed (`pointer-events: none`).
+- **Payload parsing** (`web/src/utils/format.ts`): optimized `normalizePlainPayload()` with heuristic JSON detection (check for `{}` or `[]` braces) before attempting parse, reducing unnecessary exceptions on hex strings and plain values.
+- **Live publish feedback** (`web/src/tabs/LiveTab.tsx`): publish success message now clears immediately (`setMsg(null)`) instead of showing "Published." text, providing cleaner UX.
+- **Documentation** — `README.md`, `docs/API.md`, and `docs/ARCHITECTURE.md` updated for profiles, supervisor, and new environment variables (`MOSQUITTO_PID_FILE`, `MOSQUITTO_SUPERVISOR_INTERVAL`, clarified `MQTT_HOST`); added `/api/docker-host` endpoint reference.
 
 ---
 

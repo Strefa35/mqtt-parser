@@ -1267,7 +1267,7 @@ button.rules-icon-btn[data-tooltip]::after {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   opacity: 0;
   visibility: hidden;
-  pointer-events: auto;
+  pointer-events: none;
   z-index: 40;
   transition: opacity 0.1s ease, visibility 0.1s ease;
 }
