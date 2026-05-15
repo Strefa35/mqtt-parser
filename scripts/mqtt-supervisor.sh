@@ -15,7 +15,24 @@ is_running() {
   if [[ -f "$PID_FILE" ]]; then
     local pid
     pid="$(tr -d '[:space:]' <"$PID_FILE" 2>/dev/null || true)"
-    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+    if [[ -z "$pid" ]]; then
+      return 1
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+      return 1
+    fi
+    if [[ -r "/proc/$pid/comm" ]]; then
+      [[ "$(tr -d '[:space:]' <"/proc/$pid/comm" 2>/dev/null || true)" == "mosquitto" ]]
+      return $?
+    fi
+    if [[ -r "/proc/$pid/cmdline" ]]; then
+      local argv0 exe
+      argv0="$(tr '\0' '\n' <"/proc/$pid/cmdline" 2>/dev/null | head -n1 || true)"
+      exe="$(basename "$argv0")"
+      [[ "$exe" == "mosquitto" ]]
+      return $?
+    fi
+    return 1
   else
     return 1
   fi

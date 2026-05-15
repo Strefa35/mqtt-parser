@@ -104,7 +104,7 @@ sequenceDiagram
 
 ### 4. Browser: HTTP vs WebSocket
 
-Typical split: **REST** for CRUD, history, config, logs; **WebSocket** for low-latency live feed and log streaming (same JSON envelope as broadcast from the server).
+Typical split: **REST** for CRUD, history, config, logs; **WebSocket** for low-latency live feed updates. The server can broadcast both `message` and `log` events on `/ws`, but the current UI consumes real-time `message` events while Logs view reads from HTTP.
 
 ```mermaid
 flowchart TB
@@ -117,7 +117,7 @@ flowchart TB
     Hub[ws-hub broadcast]
   end
   React -->|"fetch: config, messages, rules, publish, …"| REST
-  React -->|"WebSocket: live messages + logs"| WS
+  React -->|"WebSocket: live messages"| WS
   Hub --> WS
 ```
 
@@ -160,7 +160,7 @@ sequenceDiagram
 | `src/db.ts` | **better-sqlite3**: schema bootstrap, settings, messages, rules, app logs, publish presets. WAL mode. |
 | `src/mosquitto-control.ts` | Writes **`.run_embedded_mosquitto`**; optional **running** check via `/proc` (avoids `kill(0)` EPERM vs root Mosquitto). |
 | `src/mqtt-bridge.ts` | **`MqttBridge`**: MQTT client (`mqtt` package), active **embedded** / **external** profile, subscription pattern from settings, inbound pipeline, outbound publish, reconnect on config change. |
-| `src/ws-hub.ts` | In-memory `Set` of WebSocket clients; `broadcast(event, data)` JSON-lines to browsers. |
+| `src/ws-hub.ts` | In-memory `Set` of WebSocket clients; `broadcast(event, data)` sends JSON WebSocket messages (`{ event, data }`) to browsers. |
 | `src/parser.ts` | Payload display (UTF-8 vs hex), parse modes `auto` / `json` / `text` / `hex`, JSON for `parsed_json` column. |
 | `src/topic-match.ts` | MQTT topic filter matching (`+`, `#`). |
 | `src/rules-engine.ts` | Rule match (topic + optional regex), template expansion `{{topic}}`, `{{payload}}`, `{{parsed}}`. |
@@ -186,7 +186,7 @@ sequenceDiagram
 
 - **Vite + React + TypeScript**. Production build output is copied into **`/app/public`** in the Docker image (see Dockerfile `COPY --from=web`).
 - **`src/api.ts`** — typed fetch helpers for `/api/*`.
-- **`src/hooks/useWebSocket.ts`** — connects to `/ws`, dispatches `message` and `log` events.
+- **`src/hooks/useWebSocket.ts`** — connects to `/ws` and forwards WebSocket events to the app callback (Live tab uses `message`; Logs tab uses HTTP polling via `/api/logs`).
 - **Tabs** (Live, History, Config, Logs, Help) map to the areas described in [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## Persistence

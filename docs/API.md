@@ -52,7 +52,7 @@ Docker host address information (for device connection hints).
 }
 ```
 
-`hostAddress` is the IP address or hostname of the Docker host as detected from the `DOCKER_HOST` environment variable or fallback IP resolution. External MQTT clients should use this address (plus the published `MQTT_PORT`) to connect to the embedded broker from outside the container.
+`hostAddress` is taken directly from the `DOCKER_HOST_IP` environment variable. If `DOCKER_HOST_IP` is not set, the server returns `host.docker.internal`. External MQTT clients should use this address (plus the published `MQTT_PORT`) to connect to the embedded broker from outside the container.
 
 ---
 
@@ -296,6 +296,31 @@ Up to **30** presets, newest `lastUsedAt` first.
   ]
 }
 ```
+
+---
+
+## `POST /api/publish-presets`
+
+Stores a **topic + payload** pair in recent publish presets without sending MQTT traffic.
+
+### Body (publish preset)
+
+```json
+{
+  "topic": "required/topic",
+  "payload": ""
+}
+```
+
+| Field | Notes |
+| ------- | -------- |
+| `topic` | Required, non-empty trim |
+| `payload` | Required string (`""` allowed) |
+
+On success, the server upserts by `(topic, payload)`, updates recency (`lastUsedAt`), and trims the table to 30 rows.
+
+**Response 200** — `{ "ok": true }`  
+**400** — validation (`topic required` or `payload must be a string`)
 
 ---
 

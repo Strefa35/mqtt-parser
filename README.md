@@ -47,7 +47,7 @@ Devices connect to `tcp://<host-ip>:1883` (or the mapped port). The UI shows a *
 ## Data persistence
 
 - **SQLite** path inside the container: `/data/mqtt-parser.db` (see `SQLITE_PATH`).
-- Besides **messages**, **rules**, **settings**, and **app logs**, the database stores **`publish_presets`**: up to **30** recent **topic + payload** pairs from **successful** `POST /api/publish` calls (deduplicated by topic and payload, most recently used first). The Publish UI loads them via `GET /api/publish-presets`.
+- Besides **messages**, **rules**, **settings**, and **app logs**, the database stores **`publish_presets`**: up to **30** recent **topic + payload** pairs (deduplicated by topic and payload, most recently used first). They are updated after successful `POST /api/publish` calls and can also be saved directly via `POST /api/publish-presets`. The Publish UI loads them via `GET /api/publish-presets`.
 - **`docker compose`** maps **`./data`** from the project root to `/data`, so the database is visible on the host as **`data/mqtt-parser.db`**. The directory is created automatically when the container starts if it does not exist.
 - If you previously used the old **named volume** `mqtt-parser-data`, that data still lives under Docker’s volume storage (`docker volume inspect …`); copy the `.db` file out if you need it, or switch back to a named volume in `docker-compose.yml`.
 - With plain `docker run`, mount the same way:
@@ -69,6 +69,7 @@ docker run --rm \
 | `HTTP_PORT` | `8080` | Web server listen port inside the container |
 | `MQTT_PORT` | `1883` | Mosquitto listener port (must match app) |
 | `MQTT_HOST` | `127.0.0.1` | Default broker host for the **external** client profile when its host field is empty |
+| `DOCKER_HOST_IP` | `host.docker.internal` | Value returned by `GET /api/docker-host` as `hostAddress` for external client connection hints |
 | `SQLITE_PATH` | `/data/mqtt-parser.db` | SQLite database file path |
 | `MAX_MESSAGE_BYTES` | `262144` | Drop inbound MQTT payloads larger than this (bytes) |
 | `MOSQUITTO_PID_FILE` | `/tmp/mosquitto-mqtt-parser.pid` | PID file used by `mqtt-supervisor.sh` and API running-state checks; must match Mosquitto `pid_file` |
@@ -102,7 +103,7 @@ Full reference: **[docs/API.md](docs/API.md)** (REST + WebSocket). Short list:
 
 - `GET /api/health` · `GET /api/docker-host` · `GET` \| `PATCH /api/config` · `GET /api/messages` · `DELETE /api/messages/:id` · `POST /api/messages/delete-bulk` · `POST /api/messages/delete-by-filter`
 - `GET /api/logs` · `GET` / `POST` / `PATCH` / `DELETE` **`/api/rules`** and **`/api/rules/:id`**
-- `GET /api/publish-presets` · `POST /api/publish` · `GET /ws`
+- `GET /api/publish-presets` · `POST /api/publish-presets` · `POST /api/publish` · `GET /ws`
 
 ## Development (without Docker)
 

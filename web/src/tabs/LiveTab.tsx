@@ -39,9 +39,13 @@ function readLiveTableColPcts(): [number, number, number] {
 }
 
 function publishHistoryOptionLabel(e: Pick<PublishPreset, 'topic' | 'payload'>): string {
+  const TOPIC_MAX = 72;
+  const PAYLOAD_MAX = 140;
   const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
-  const t = oneLine(e.topic);
-  const pl = oneLine(e.payload);
+  const truncateWithEllipsis = (s: string, max: number) =>
+    s.length > max ? `${s.slice(0, Math.max(0, max - 1))}…` : s;
+  const t = truncateWithEllipsis(oneLine(e.topic), TOPIC_MAX);
+  const pl = truncateWithEllipsis(oneLine(e.payload), PAYLOAD_MAX);
   return `${t} — ${pl}`;
 }
 

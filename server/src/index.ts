@@ -89,11 +89,16 @@ function mqttProfileBlock(profile: 'embedded' | 'external') {
   const storedH = getSetting(db, hostKey).trim();
   const storedP = getSetting(db, portKey).trim();
   const envFallbackHost = profile === 'embedded' ? '127.0.0.1' : MQTT_HOST;
+  const portUsesEnvFallback = (() => {
+    if (storedP === '') return true;
+    const n = Number(storedP);
+    return !(Number.isFinite(n) && n > 0 && n < 65536);
+  })();
   return {
     host: bridge.resolveHostForProfile(profile),
     port: bridge.resolvePortForProfile(profile),
     hostUsesEnvFallback: storedH === '',
-    portUsesEnvFallback: storedP === '',
+    portUsesEnvFallback,
     envFallbackHost,
     envFallbackPort: MQTT_PORT,
   };
@@ -107,6 +112,11 @@ function configResponse() {
   const activeStoredH = getSetting(db, activeHostKey).trim();
   const activeStoredP = getSetting(db, activePortKey).trim();
   const activeEnvHost = active === 'embedded' ? '127.0.0.1' : MQTT_HOST;
+  const activePortUsesEnvFallback = (() => {
+    if (activeStoredP === '') return true;
+    const n = Number(activeStoredP);
+    return !(Number.isFinite(n) && n > 0 && n < 65536);
+  })();
   return {
     broker: {
       hostHint: getSetting(db, 'host_hint') || undefined,
@@ -120,7 +130,7 @@ function configResponse() {
       host: mc.host,
       port: mc.port,
       hostUsesEnvFallback: activeStoredH === '',
-      portUsesEnvFallback: activeStoredP === '',
+      portUsesEnvFallback: activePortUsesEnvFallback,
       envFallbackHost: activeEnvHost,
       envFallbackPort: MQTT_PORT,
       username: mc.username,

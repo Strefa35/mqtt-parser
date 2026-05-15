@@ -4,6 +4,12 @@ Notable changes to **MQTT Parser** are recorded here. Versions follow the projec
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- **Documentation** — aligned API docs and README with implementation for publish presets: documented `POST /api/publish-presets`, clarified that presets can be saved both after successful `POST /api/publish` and directly via the presets endpoint, and updated the API short list in `README.md`.
+
 ## [0.0.2] — 2026-05-14
 
 ### Added
@@ -14,13 +20,13 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - **SQLite settings** for `embedded_mqtt_broker_enabled`, `mqtt_active_profile`, and per-profile `mqtt_embedded_*` / `mqtt_external_*` host and port; legacy `mqtt_client_*` keys are migrated on database open when still present.
 - **Web UI**: header controls for active profile and embedded Mosquitto on/off; **Config** tab updates for both profiles; related styling and API client helpers.
 - **Health / config API** fields: `mqttActiveProfile`, `embeddedMqttBrokerEnabled`, `embeddedMqttBrokerRunning`, and profile-specific shapes on `GET /api/config` (see `docs/API.md`).
+- **API**: added `GET /api/docker-host` for Docker host connection hints; response includes `hostAddress`.
 
 ### Changed
 
 - **Dockerfile** — copies and chmods `mqtt-supervisor.sh`; **entrypoint** starts the supervisor instead of always starting Mosquitto directly.
 - **`config/mosquitto.conf.template`** — sets **`pid_file`** for clean stop/start by the supervisor.
 - **`MqttBridge`** — reconnects using the active profile; config patches sync the Mosquitto control file.
-- **API**: `/api/host-info` endpoint renamed to `/api/docker-host`; response field `hostIp` renamed to `hostAddress` for semantic clarity.
 - **Web UI**: accessibility improvements — `role="switch"` and `aria-checked` replaced with `aria-pressed` for MQTT profile toggle button; tooltip pointer events fixed (`pointer-events: none`).
 - **Payload parsing** (`web/src/utils/format.ts`): optimized `normalizePlainPayload()` with heuristic JSON detection (check for `{}` or `[]` braces) before attempting parse, reducing unnecessary exceptions on hex strings and plain values.
 - **Live publish feedback** (`web/src/tabs/LiveTab.tsx`): publish success message now clears immediately (`setMsg(null)`) instead of showing "Published." text, providing cleaner UX.
