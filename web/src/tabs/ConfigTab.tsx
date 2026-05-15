@@ -18,8 +18,10 @@ export function ConfigView({
   const [sub, setSub] = useState('#');
   const [mode, setMode] = useState('auto');
   const [hint, setHint] = useState('');
-  const [mqttHost, setMqttHost] = useState('');
-  const [mqttPort, setMqttPort] = useState('');
+  const [embHost, setEmbHost] = useState('');
+  const [embPort, setEmbPort] = useState('');
+  const [extHost, setExtHost] = useState('');
+  const [extPort, setExtPort] = useState('');
   const [mqttUser, setMqttUser] = useState('');
   const [mqttPass, setMqttPass] = useState('');
   const [clearPassword, setClearPassword] = useState(false);
@@ -32,28 +34,42 @@ export function ConfigView({
     setSub(config.subscriptionPattern);
     setMode(config.defaultParseMode);
     setHint(config.broker.hostHint ?? '');
-    const mc = config.mqttClient;
-    setMqttHost(mc.hostUsesEnvFallback ? '' : mc.host);
-    setMqttPort(mc.portUsesEnvFallback ? '' : String(mc.port));
-    setMqttUser(mc.username);
+    const e = config.mqttEmbedded;
+    const x = config.mqttExternal;
+    setEmbHost(e.hostUsesEnvFallback ? '' : e.host);
+    setEmbPort(e.portUsesEnvFallback ? '' : String(e.port));
+    setExtHost(x.hostUsesEnvFallback ? '' : x.host);
+    setExtPort(x.portUsesEnvFallback ? '' : String(x.port));
+    setMqttUser(config.mqttClient.username);
     setMqttPass('');
     setClearPassword(false);
-    setMqttProtocol(mc.protocol === '5' ? '5' : '3.1.1');
-    setMqttKeepalive(String(mc.keepalive));
+    setMqttProtocol(config.mqttClient.protocol === '5' ? '5' : '3.1.1');
+    setMqttKeepalive(String(config.mqttClient.keepalive));
   }, [config]);
+
+  const parsePortField = (
+    raw: string,
+    label: string
+  ): { ok: true; value: number | '' } | { ok: false; err: string } => {
+    if (raw.trim() === '') return { ok: true, value: '' };
+    const p = Number(raw);
+    if (!Number.isInteger(p) || p <= 0 || p >= 65536) {
+      return { ok: false, err: `Invalid MQTT port (${label}): expected an integer in range 1-65535.` };
+    }
+    return { ok: true, value: p };
+  };
 
   const save = async () => {
     setMsg(null);
-    const portPart: Record<string, unknown> = {};
-    if (mqttPort.trim() === '') {
-      portPart.mqttClientPort = '';
-    } else {
-      const p = Number(mqttPort);
-      if (!Number.isFinite(p) || p <= 0 || p >= 65536) {
-        setMsg('Invalid MQTT port.');
-        return;
-      }
-      portPart.mqttClientPort = p;
+    const ep = parsePortField(embPort, 'embedded');
+    const xp = parsePortField(extPort, 'external');
+    if (!ep.ok) {
+      setMsg(ep.err);
+      return;
+    }
+    if (!xp.ok) {
+      setMsg(xp.err);
+      return;
     }
     const k = Number(mqttKeepalive);
     if (!Number.isFinite(k) || k < 10 || k > 3600) {
@@ -65,11 +81,13 @@ export function ConfigView({
         subscriptionPattern: sub,
         defaultParseMode: mode,
         hostHint: hint,
-        mqttClientHost: mqttHost.trim(),
+        mqttEmbeddedHost: embHost.trim(),
+        mqttEmbeddedPort: ep.value === '' ? '' : ep.value,
+        mqttExternalHost: extHost.trim(),
+        mqttExternalPort: xp.value === '' ? '' : xp.value,
         mqttClientUsername: mqttUser,
         mqttProtocol,
         mqttKeepalive: k,
-        ...portPart,
       };
       if (clearPassword) {
         body.mqttClientPassword = '';
@@ -80,9 +98,7 @@ export function ConfigView({
       onSaved(c);
       setMqttPass('');
       setClearPassword(false);
-      setMsg(
-        'Saved. MQTT client reconnected if broker host/port/auth/protocol changed.'
-      );
+      setMsg('Saved. MQTT client reconnects when the active profile or broker settings change.');
     } catch (e) {
       setMsg(String(e));
     }
@@ -125,56 +141,94 @@ export function ConfigView({
   }
 
   const mc = config.mqttClient;
+  const e = config.mqttEmbedded;
+  const x = config.mqttExternal;
 
   return (
     <section className="panel">
       <h2>Broker &amp; parser settings</h2>
       <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginTop: 0 }}>
-        Broker for devices: <strong>{config.broker.hostHint || '<host>'}</strong>:
-        <strong>{mc.port}</strong> (map container port, default <code>1883</code>).
+        Devices map to <strong>{config.broker.hostHint || '<host>'}</strong> on MQTT port{' '}
+        <strong>{config.embeddedMqttBrokerEnabled ? String(e.port) : '—'}</strong> when the
+        in-container Mosquitto is enabled (default <code>1883</code>). Use the header to pick
+        the <strong>active</strong> client profile (embedded vs external) and to turn container
+        Mosquitto on or off.
       </p>
 
       <h3 style={{ marginTop: '1.25rem', fontSize: '0.95rem' }}>
-        MQTT client (this app → broker)
+        MQTT client — embedded profile (in-container broker)
       </h3>
       <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginTop: 0 }}>
-        Empty host/port → <code>{mc.envFallbackHost}</code>:<code>{mc.envFallbackPort}</code>{' '}
+        Empty host → <code>{e.envFallbackHost}</code>; empty port → <code>{e.envFallbackPort}</code>{' '}
+        (<code>MQTT_PORT</code> in Docker).
+      </p>
+      <div className="row">
+        <label>
+          Broker host
+          <input
+            placeholder={e.envFallbackHost}
+            value={embHost}
+            onChange={(ev) => setEmbHost(ev.target.value)}
+          />
+        </label>
+        <label>
+          Broker port
+          <input
+            placeholder={String(e.envFallbackPort)}
+            value={embPort}
+            onChange={(ev) => setEmbPort(ev.target.value)}
+          />
+        </label>
+      </div>
+
+      <h3 style={{ marginTop: '1.25rem', fontSize: '0.95rem' }}>
+        MQTT client — external profile (broker on the network)
+      </h3>
+      <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginTop: 0 }}>
+        Empty host → <code>{x.envFallbackHost}</code>; empty port → <code>{x.envFallbackPort}</code>{' '}
         (<code>MQTT_HOST</code> / <code>MQTT_PORT</code>). Plain TCP, no TLS.
       </p>
       <div className="row">
         <label>
           Broker host
           <input
-            placeholder={mc.envFallbackHost}
-            value={mqttHost}
-            onChange={(e) => setMqttHost(e.target.value)}
+            placeholder={x.envFallbackHost}
+            value={extHost}
+            onChange={(ev) => setExtHost(ev.target.value)}
           />
         </label>
         <label>
           Broker port
           <input
-            placeholder={String(mc.envFallbackPort)}
-            value={mqttPort}
-            onChange={(e) => setMqttPort(e.target.value)}
+            placeholder={String(x.envFallbackPort)}
+            value={extPort}
+            onChange={(ev) => setExtPort(ev.target.value)}
           />
         </label>
+      </div>
+
+      <h3 style={{ marginTop: '1.25rem', fontSize: '0.95rem' }}>
+        MQTT client — shared authentication
+      </h3>
+      <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginTop: 0 }}>
+        Used for whichever profile is active in the header.
+      </p>
+      <div className="row">
         <label>
           Username (optional)
           <input
             value={mqttUser}
-            onChange={(e) => setMqttUser(e.target.value)}
+            onChange={(ev) => setMqttUser(ev.target.value)}
             autoComplete="off"
           />
         </label>
-      </div>
-      <div className="row">
         <label>
           Password (optional)
           <input
             type="password"
             placeholder={mc.passwordSet ? '(unchanged if left empty)' : ''}
             value={mqttPass}
-            onChange={(e) => setMqttPass(e.target.value)}
+            onChange={(ev) => setMqttPass(ev.target.value)}
             autoComplete="new-password"
           />
         </label>
@@ -182,7 +236,7 @@ export function ConfigView({
           <input
             type="checkbox"
             checked={clearPassword}
-            onChange={(e) => setClearPassword(e.target.checked)}
+            onChange={(ev) => setClearPassword(ev.target.checked)}
           />
           Clear stored password
         </label>
@@ -190,8 +244,8 @@ export function ConfigView({
           Protocol
           <select
             value={mqttProtocol}
-            onChange={(e) =>
-              setMqttProtocol(e.target.value === '5' ? '5' : '3.1.1')
+            onChange={(ev) =>
+              setMqttProtocol(ev.target.value === '5' ? '5' : '3.1.1')
             }
           >
             <option value="3.1.1">MQTT 3.1.1</option>
@@ -202,26 +256,31 @@ export function ConfigView({
           Keepalive (s)
           <input
             value={mqttKeepalive}
-            onChange={(e) => setMqttKeepalive(e.target.value)}
+            onChange={(ev) => setMqttKeepalive(ev.target.value)}
           />
         </label>
       </div>
       <p className="mono" style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
-        Effective now: <strong>{mc.host}</strong>:<strong>{mc.port}</strong> —{' '}
-        {mc.protocol} — keepalive {mc.keepalive}s —{' '}
-        {mc.username ? `user "${mc.username}"` : 'anonymous'}
+        Active profile: <strong>{mc.activeProfile}</strong> — effective now:{' '}
+        <strong>{mc.host}</strong>:<strong>{mc.port}</strong> — {mc.protocol} — keepalive{' '}
+        {mc.keepalive}s — {mc.username ? `user "${mc.username}"` : 'anonymous'}
         {mc.passwordSet ? ' (password set)' : ''}
+      </p>
+      <p className="mono" style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
+        Container Mosquitto:{' '}
+        <strong>{config.embeddedMqttBrokerEnabled ? 'enabled' : 'disabled'}</strong>
+        {config.embeddedMqttBrokerRunning ? ' (process running)' : ' (process stopped)'}
       </p>
 
       <h3 style={{ marginTop: '1.25rem', fontSize: '0.95rem' }}>Parser</h3>
       <div className="row">
         <label>
           Subscription pattern (app receives)
-          <input value={sub} onChange={(e) => setSub(e.target.value)} />
+          <input value={sub} onChange={(ev) => setSub(ev.target.value)} />
         </label>
         <label>
           Default parse mode
-          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <select value={mode} onChange={(ev) => setMode(ev.target.value)}>
             <option value="auto">auto</option>
             <option value="json">json</option>
             <option value="text">text</option>
@@ -233,7 +292,7 @@ export function ConfigView({
           <input
             placeholder="e.g. 192.168.1.10"
             value={hint}
-            onChange={(e) => setHint(e.target.value)}
+            onChange={(ev) => setHint(ev.target.value)}
           />
         </label>
         <button type="button" className="primary" onClick={() => void save()}>

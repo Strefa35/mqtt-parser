@@ -39,12 +39,14 @@ function readLiveTableColPcts(): [number, number, number] {
 }
 
 function publishHistoryOptionLabel(e: Pick<PublishPreset, 'topic' | 'payload'>): string {
+  const TOPIC_MAX = 72;
+  const PAYLOAD_MAX = 140;
   const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
-  const t = oneLine(e.topic);
-  const pl = oneLine(e.payload);
-  const tShow = t.length > 48 ? `${t.slice(0, 47)}…` : t;
-  const pShow = pl.length > 36 ? `${pl.slice(0, 35)}…` : pl;
-  return `${tShow} — ${pShow}`;
+  const truncateWithEllipsis = (s: string, max: number) =>
+    s.length > max ? `${s.slice(0, Math.max(0, max - 1))}…` : s;
+  const t = truncateWithEllipsis(oneLine(e.topic), TOPIC_MAX);
+  const pl = truncateWithEllipsis(oneLine(e.payload), PAYLOAD_MAX);
+  return `${t} — ${pl}`;
 }
 
 const LS_LIVE_PUBLISH_SPLIT_PCT = 'mqttParser.livePublishSplitPct';
@@ -379,6 +381,7 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
           <tbody>
             {items.map((m) => {
               const rowMode = rowPayloadMode[m.id] ?? LIVE_FEED_DEFAULT_ROW_PAYLOAD;
+              const payloadBadge = m.payload_encoding === 'hex' ? 'hex' : rowMode === 'json' ? 'json' : 'text';
               return (
                 <tr key={m.id}>
                   <td className="mono">{fmtTime(m.received_at)}</td>
@@ -395,14 +398,15 @@ function LiveView({ items, inSplit }: { items: MessageRow[]; inSplit?: boolean }
                       onClick={() => onPayloadCellClick(m.id)}
                     >
                       {rowMode === 'json' ? (
-                        <pre className="live-payload-pre live-cell-scroll">
-                          <span className="badge">{m.payload_encoding}</span>
-                          {'\n'}
-                          {formatPayloadForDisplay(m.payload_display, 'json')}
-                        </pre>
+                        <div className="live-payload-json-block">
+                          <span className="badge">{payloadBadge}</span>
+                          <pre className="live-payload-pre live-cell-scroll live-payload-pre--json">
+                            {formatPayloadForDisplay(m.payload_display, 'json')}
+                          </pre>
+                        </div>
                       ) : (
                         <div className="live-cell-scroll">
-                          <span className="badge">{m.payload_encoding}</span>{' '}
+                          <span className="badge">{payloadBadge}</span>{' '}
                           {formatPayloadForDisplay(m.payload_display, 'plain')}
                         </div>
                       )}
@@ -454,7 +458,7 @@ function PublishView({ inSplit }: { inSplit?: boolean }) {
     try {
       await api.publishMqtt({ topic, payload, qos, retain });
       await loadPresets(false);
-      setMsg('Published.');
+      setMsg(null);
     } catch (e) {
       setMsg(String(e));
     }
@@ -657,7 +661,7 @@ function RulesView({ inSplit }: { inSplit?: boolean }) {
         Reply payload template
         <textarea value={replyTpl} onChange={(e) => setReplyTpl(e.target.value)} />
       </label>
-      <div className="row" style={{ marginBottom: 0 }}>
+      <div className="row" style={{ marginBottom: 0, marginTop: '0.65rem' }}>
         <button type="button" className="primary" onClick={() => void saveRule()}>
           {editingRuleId != null ? 'Save changes' : 'Add rule'}
         </button>

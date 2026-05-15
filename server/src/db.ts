@@ -68,15 +68,42 @@ const DEFAULTS: Record<string, string> = {
   subscription_pattern: '#',
   default_parse_mode: 'auto',
   host_hint: '',
-  /** App MQTT client → broker; empty host/port fall back to process env at runtime */
+  /** Legacy single client target; migrated into profile keys on open (see migrateLegacyMqttClientSettings). */
   mqtt_client_host: '',
   mqtt_client_port: '',
+  /** "1" = run Mosquitto in container (supervisor); "0" = stop embedded broker. */
+  embedded_mqtt_broker_enabled: '1',
+  /** "embedded" | "external" — which host/port profile the app MQTT client uses. */
+  mqtt_active_profile: 'embedded',
+  /** Profile → in-container / loopback broker (empty host → 127.0.0.1, empty port → MQTT_PORT). */
+  mqtt_embedded_host: '',
+  mqtt_embedded_port: '',
+  /** Profile → broker elsewhere on the network (empty host/port → MQTT_HOST / MQTT_PORT env). */
+  mqtt_external_host: '',
+  mqtt_external_port: '',
   mqtt_username: '',
   mqtt_password: '',
   /** "3.1.1" | "5" */
   mqtt_protocol: '5',
   mqtt_keepalive: '60',
 };
+
+function migrateLegacyMqttClientSettings(db: Database.Database): void {
+  const legacyH = getSetting(db, 'mqtt_client_host').trim();
+  const legacyP = getSetting(db, 'mqtt_client_port').trim();
+  if (legacyH && !getSetting(db, 'mqtt_embedded_host').trim()) {
+    setSetting(db, 'mqtt_embedded_host', legacyH);
+  }
+  if (legacyP && !getSetting(db, 'mqtt_embedded_port').trim()) {
+    setSetting(db, 'mqtt_embedded_port', legacyP);
+  }
+  if (legacyH && !getSetting(db, 'mqtt_external_host').trim()) {
+    setSetting(db, 'mqtt_external_host', legacyH);
+  }
+  if (legacyP && !getSetting(db, 'mqtt_external_port').trim()) {
+    setSetting(db, 'mqtt_external_port', legacyP);
+  }
+}
 
 export function openDb(path: string): Database.Database {
   const db = new Database(path);
@@ -88,6 +115,7 @@ export function openDb(path: string): Database.Database {
   for (const [k, v] of Object.entries(DEFAULTS)) {
     ins.run(k, v);
   }
+  migrateLegacyMqttClientSettings(db);
   return db;
 }
 

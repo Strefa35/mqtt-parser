@@ -63,6 +63,29 @@ export function IconChevronDownSmall() {
   );
 }
 
+/** MQTT / broker hint for header Mosquitto toggle (waves + node). */
+export function IconMqttBrokerKnob() {
+  return (
+    <svg
+      className="mosquitto-toggle-knob-icon"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      aria-hidden={true}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20v-3" />
+      <path d="M8.5 14a3.5 3.5 0 0 1 7 0" />
+      <path d="M5 10a7 7 0 0 1 14 0" />
+      <circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconTrash() {
   return (
     <svg
@@ -85,3 +108,25 @@ export function IconTrash() {
     </svg>
   );
 }
+
+/** Plus icon used for adding an entry to a list. */
+export function IconAdd() {
+  return (
+    <svg
+      className="rules-icon-svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      aria-hidden={true}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+

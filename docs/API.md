@@ -11,7 +11,7 @@ For system design, see [ARCHITECTURE.md](ARCHITECTURE.md). For product behavior 
 ## Conventions
 
 | Topic | Detail |
-|-------|--------|
+| ------- | -------- |
 | JSON field names | REST bodies use **camelCase** where listed below. Message list **items** use **snake_case** column names (`received_at`, `payload_display`, …) matching SQLite. |
 | Query parameters | Spelling matches the implementation: `topicContains`, `fromTs`, `toTs`, etc. |
 | Authentication | None on the default server; place a reverse proxy in front if exposing beyond a trusted network. |
@@ -22,18 +22,37 @@ For system design, see [ARCHITECTURE.md](ARCHITECTURE.md). For product behavior 
 
 Liveness and MQTT client status.
 
-**Response 200**
+### Response 200 (health)
 
 ```json
 {
   "ok": true,
   "mqtt": "connected",
   "broker": { "host": "127.0.0.1", "port": 1883, "tls": false },
+  "mqttActiveProfile": "embedded",
+  "embeddedMqttBrokerEnabled": true,
+  "embeddedMqttBrokerRunning": true,
   "limits": { "maxMessageBytes": 262144 }
 }
 ```
 
-`mqtt` is `"connected"` or `"disconnected"`.
+`mqtt` is `"connected"` or `"disconnected"`. `mqttActiveProfile` is which client profile is in use (`embedded` \| `external`). `embeddedMqttBrokerEnabled` is the desired state from SQLite; `embeddedMqttBrokerRunning` reflects whether the Mosquitto PID file points at a live process (Linux `/proc` check from the Node user).
+
+---
+
+## `GET /api/docker-host`
+
+Docker host address information (for device connection hints).
+
+### Response 200 (docker-host)
+
+```json
+{
+  "hostAddress": "192.168.1.100"
+}
+```
+
+`hostAddress` is taken directly from the `DOCKER_HOST_IP` environment variable. If `DOCKER_HOST_IP` is not set, the server returns `host.docker.internal`. External MQTT clients should use this address (plus the published `MQTT_PORT`) to connect to the embedded broker from outside the container.
 
 ---
 
@@ -44,7 +63,9 @@ Returns current operator and broker-client settings.
 **Response 200** (shape)
 
 - `broker`: `hostHint` (omitted if empty), `internalHost` (deprecated; same role as `mqttClient.host`), `port`, `tls`, `anonymous`
-- `mqttClient`: `host`, `port`, `hostUsesEnvFallback`, `portUsesEnvFallback`, `envFallbackHost`, `envFallbackPort`, `username`, `passwordSet`, `protocol` (`"3.1.1"` \| `"5"`), `keepalive`
+- `mqttClient`: effective connection for the **active** profile — `host`, `port`, `hostUsesEnvFallback`, `portUsesEnvFallback`, `envFallbackHost`, `envFallbackPort`, `username`, `passwordSet`, `protocol` (`"3.1.1"` \| `"5"`), `keepalive`, `activeProfile` (`embedded` \| `external`)
+- `mqttEmbedded`, `mqttExternal`: same sub-shape as the host/port part of `mqttClient` (resolved host/port + fallback flags) for the two stored profiles
+- `embeddedMqttBrokerEnabled`, `embeddedMqttBrokerRunning`: desired vs observed Mosquitto in the container
 - `subscriptionPattern`, `defaultParseMode`, `sqlitePath`, `httpPort`
 
 ---
@@ -54,18 +75,26 @@ Returns current operator and broker-client settings.
 Partial update. Omitted keys are left unchanged.
 
 | Body field | Type | Effect |
-|------------|------|--------|
+| ------------ | ------ | -------- |
+| `embeddedMqttBrokerEnabled` | boolean | Stored; writes control file for `mqtt-supervisor.sh` so Mosquitto starts/stops without restarting the container |
+| `mqttActiveProfile` | `"embedded"` \| `"external"` | Stored; **reconnect** MQTT client using that profile’s host/port |
+| `mqttEmbeddedHost` | string | Trimmed; stored; **reconnect** if embedded profile is active |
+| `mqttEmbeddedPort` | number, `""`, or `null` | Valid port or clear; **reconnect** if embedded profile is active. Invalid/out-of-range values are ignored (no 4xx) |
+| `mqttExternalHost` | string | Trimmed; stored; **reconnect** if external profile is active |
+| `mqttExternalPort` | number, `""`, or `null` | Valid port or clear; **reconnect** if external profile is active. Invalid/out-of-range values are ignored (no 4xx) |
 | `subscriptionPattern` | string (non-empty after trim) | Updates subscription; calls `reloadSubscription()` |
 | `defaultParseMode` | `"auto"` \| `"json"` \| `"text"` \| `"hex"` | Stored default parse mode |
 | `hostHint` | string | Operator hint (devices still use real network path) |
-| `mqttClientHost` | string | Trimmed; stored; **reconnect** MQTT client |
-| `mqttClientPort` | number, `""`, or `null` | Valid port 1–65535, or clear to use env default; **reconnect** if changed |
+| `mqttClientHost` | string | Trimmed; stored on the **currently active** profile (`mqtt_embedded_*` or `mqtt_external_*`); **reconnect** |
+| `mqttClientPort` | number, `""`, or `null` | Same as above for the active profile’s port; **reconnect** if changed. Invalid/out-of-range values are ignored (no 4xx) |
 | `mqttClientUsername` | string | Stored; **reconnect** |
 | `mqttClientPassword` | any (if key present) | Stored as string (`""` clears); **reconnect**. Omit property to leave password unchanged |
 | `mqttProtocol` | `"3.1.1"` \| `"5"` | Stored; **reconnect** |
 | `mqttKeepalive` | number (coerced) | Seconds, stored; **reconnect** |
 
-**Response 200** — same shape as `GET /api/config`.
+### Response 200 (config)
+
+Same shape as `GET /api/config`.
 
 ---
 
@@ -73,10 +102,10 @@ Partial update. Omitted keys are left unchanged.
 
 Paginated stored messages (newest first).
 
-**Query parameters**
+### Query parameters
 
 | Parameter | Default | Notes |
-|-----------|---------|--------|
+| ----------- | --------- | -------- |
 | `page` | `1` | ≥ 1 |
 | `limit` | `50` | Clamped 1–200 |
 | `topicContains` | — | Substring match on `topic` |
@@ -84,7 +113,7 @@ Paginated stored messages (newest first).
 | `toTs` | — | Epoch ms, `received_at <= toTs` |
 | `search` | — | Matches `topic`, `payload_display`, or `parsed_json` text |
 
-**Response 200**
+### Response 200 (messages)
 
 ```json
 {
@@ -119,7 +148,7 @@ Paginated stored messages (newest first).
 
 ## `POST /api/messages/delete-bulk`
 
-**Body**
+### Body (delete bulk)
 
 ```json
 { "ids": [1, 2, 3] }
@@ -136,7 +165,7 @@ Paginated stored messages (newest first).
 
 Deletes all messages matching the filter. **Dangerous** if filters are empty (matches all rows).
 
-**Body**
+### Body (delete by filter)
 
 ```json
 {
@@ -159,11 +188,11 @@ Deletes all messages matching the filter. **Dangerous** if filters are empty (ma
 
 Application log lines from SQLite.
 
-**Query**
+### Query
 
 - `limit` — optional, passed to `listAppLogs` (server clamps in DB layer, typically 1–500).
 
-**Response 200**
+### Response 200 (logs)
 
 ```json
 {
@@ -185,7 +214,7 @@ Application log lines from SQLite.
 
 ## `GET /api/rules`
 
-**Response 200**
+### Response 200 (rules)
 
 ```json
 {
@@ -210,10 +239,10 @@ Ordered by `sort_order`, then `id`. Max **100** rules (enforced on insert).
 
 ## `POST /api/rules`
 
-**Body** (camelCase)
+### Body (camelCase)
 
 | Field | Required | Notes |
-|-------|----------|--------|
+| ------- | ---------- | -------- |
 | `name` | yes | Non-empty trim |
 | `topicPattern` | yes | Non-empty trim |
 | `replyTopic` | yes | Non-empty trim |
@@ -232,7 +261,7 @@ Ordered by `sort_order`, then `id`. Max **100** rules (enforced on insert).
 Partial update. Only provided fields override; others keep existing values.
 
 | Body field | Notes |
-|------------|--------|
+| ------------ | -------- |
 | `sortOrder`, `name`, `enabled`, `topicPattern`, `replyTopic`, `replyPayloadTemplate` | Standard merge |
 | `payloadRegex` | If **string**: trim; empty string → `null`. If **not** sent as a string, existing `payload_regex` is **unchanged** (you cannot clear via `null` alone — use `""`). |
 
@@ -253,7 +282,7 @@ Partial update. Only provided fields override; others keep existing values.
 
 Up to **30** presets, newest `lastUsedAt` first.
 
-**Response 200**
+### Response 200 (publish presets)
 
 ```json
 {
@@ -270,11 +299,36 @@ Up to **30** presets, newest `lastUsedAt` first.
 
 ---
 
+## `POST /api/publish-presets`
+
+Stores a **topic + payload** pair in recent publish presets without sending MQTT traffic.
+
+### Body (publish preset)
+
+```json
+{
+  "topic": "required/topic",
+  "payload": ""
+}
+```
+
+| Field | Notes |
+| ------- | -------- |
+| `topic` | Required, non-empty trim |
+| `payload` | Required string (`""` allowed) |
+
+On success, the server upserts by `(topic, payload)`, updates recency (`lastUsedAt`), and trims the table to 30 rows.
+
+**Response 200** — `{ "ok": true }`  
+**400** — validation (`topic required` or `payload must be a string`)
+
+---
+
 ## `POST /api/publish`
 
 Publishes via the app’s MQTT client (must be connected to the broker).
 
-**Body**
+### Body (publish)
 
 ```json
 {
@@ -286,7 +340,7 @@ Publishes via the app’s MQTT client (must be connected to the broker).
 ```
 
 | Field | Notes |
-|-------|--------|
+| ------- | -------- |
 | `topic` | Required, non-empty trim |
 | `payload` | Optional; default `""` |
 | `qos` | `0`, `1`, or `2` |

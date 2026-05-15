@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MessageRow } from '../api';
 import * as api from '../api';
 import { LIVE_FEED_DEFAULT_ROW_PAYLOAD } from '../defaults';
-import { IconTrash } from '../icons';
+import { IconAdd, IconTrash } from '../icons';
 import { fmtTime, formatPayloadForDisplay } from '../utils/format';
 
 const LS_HISTORY_TABLE_COL_PCTS = 'mqttParser.historyTableColPcts';
@@ -334,7 +334,7 @@ export function HistoryView() {
             ))}
             <col
               className="history-col-actions"
-              style={{ width: '2.75rem', minWidth: '2.75rem' }}
+              style={{ width: '4.75rem', minWidth: '4.75rem' }}
             />
           </colgroup>
           <thead>
@@ -384,6 +384,7 @@ export function HistoryView() {
           <tbody>
             {items.map((m) => {
               const rowMode = rowPayloadMode[m.id] ?? LIVE_FEED_DEFAULT_ROW_PAYLOAD;
+              const payloadBadge = m.payload_encoding === 'hex' ? 'hex' : rowMode === 'json' ? 'json' : 'text';
               return (
               <tr key={m.id}>
                 <td className="history-cell-checkbox">
@@ -410,37 +411,58 @@ export function HistoryView() {
                     onClick={() => onHistoryPayloadClick(m.id)}
                   >
                     {rowMode === 'json' ? (
-                      <pre className="live-payload-pre history-payload-cell">
-                        <span className="badge">{m.payload_encoding}</span>
-                        {'\n'}
-                        {formatPayloadForDisplay(m.payload_display, 'json')}
-                      </pre>
+                      <div className="live-payload-json-block">
+                        <span className="badge">{payloadBadge}</span>
+                        <pre className="live-payload-pre history-payload-cell live-payload-pre--json">
+                          {formatPayloadForDisplay(m.payload_display, 'json')}
+                        </pre>
+                      </div>
                     ) : (
                       <div className="history-payload-cell">
-                        <span className="badge">{m.payload_encoding}</span>{' '}
+                        <span className="badge">{payloadBadge}</span>{' '}
                         {formatPayloadForDisplay(m.payload_display, 'plain')}
                       </div>
                     )}
                   </button>
                 </td>
                 <td className="history-actions-cell">
-                  <button
-                    type="button"
-                    className="danger rules-icon-btn"
-                    aria-label={`Delete message ${m.id}`}
-                    data-tooltip="Delete message"
-                    onClick={async () => {
-                      if (!confirm(`Delete message ${m.id}?`)) return;
-                      try {
-                        await api.deleteMessage(m.id);
-                        await load();
-                      } catch (e) {
-                        alert(String(e));
-                      }
-                    }}
-                  >
-                    <IconTrash />
-                  </button>
+                  <div className="rules-actions">
+                    <button
+                      type="button"
+                      className="ghost rules-icon-btn"
+                      aria-label={`Add message ${m.id} payload to recent commands`}
+                      data-tooltip="Add to recent commands"
+                      onClick={async () => {
+                        try {
+                          await api.addPublishPreset({
+                            topic: m.topic,
+                            payload: m.payload_display,
+                          });
+                        } catch (e) {
+                          alert(String(e));
+                        }
+                      }}
+                    >
+                      <IconAdd />
+                    </button>
+                    <button
+                      type="button"
+                      className="danger rules-icon-btn"
+                      aria-label={`Delete message ${m.id}`}
+                      data-tooltip="Delete message"
+                      onClick={async () => {
+                        if (!confirm(`Delete message ${m.id}?`)) return;
+                        try {
+                          await api.deleteMessage(m.id);
+                          await load();
+                        } catch (e) {
+                          alert(String(e));
+                        }
+                      }}
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
                 </td>
               </tr>
               );

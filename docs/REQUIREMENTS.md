@@ -16,16 +16,16 @@ The project delivers an **MQTT Parser** packaged as a **Docker container** based
 ## 3. Container Platform
 
 | Requirement | Description |
-|-------------|-------------|
+| ------------- | ------------- |
 | **Base image** | Ubuntu (version to be pinned in the Dockerfile for reproducibility). |
-| **Process model** | One container runs the broker, the web stack, and any worker that bridges broker ↔ web (exact supervision: systemd, supervisord, or a minimal init script — to be decided in design). |
-| **Ports** | At minimum: **MQTT** (default 1883 unless overridden) and **HTTP** (default 80 or 8080 unless overridden). Ports must be **documented** and **configurable** via environment variables or mounted config. |
+| **Process model** | One container runs the broker, the web stack, and the bridge worker. Runtime uses a minimal init script model: `entrypoint.sh` starts `mqtt-supervisor.sh` (broker on/off control loop) and runs Node as `PUID`/`PGID`. |
+| **Ports** | At minimum: **MQTT** (default 1883 unless overridden) and **HTTP** (default 8080 unless overridden). Ports must be **documented** and **configurable** via environment variables or mounted config. |
 | **Networking** | Devices on the LAN/WAN reach the broker via the **host’s IP/DNS** and the **published MQTT port** (`docker run -p …`). |
 
 ## 4. MQTT Broker (In-Container)
 
 | Requirement | Description |
-|-------------|-------------|
+| ------------- | ------------- |
 | **Embedded broker** | A standards-compliant MQTT broker runs **inside** the same container as the application (e.g. Eclipse Mosquitto or equivalent). |
 | **Client connectivity** | After the container starts, MQTT clients (devices) can **connect, publish, and subscribe** using the exposed broker endpoint. |
 | **Topics** | The system shall support MQTT **topics** and **wildcards** as defined by the broker; the web app shall allow configuring **subscriptions** (which topics the parser observes). |
@@ -60,7 +60,7 @@ The project delivers an **MQTT Parser** packaged as a **Docker container** based
    - **Implementation:** rules should be **editable** in the UI (not only create/delete). The rules editor is grouped with **manual publish** in the **Live** area (right-hand panel: **Publish** / **Rules** sub-tabs), not as a separate top-level tab. The rules list shows **enabled** state as a **green** or **red** status indicator in the first column; the operator **clicks that control** to turn a rule on or off (no separate “toggle” action button required).
 
 6. **Outbound MQTT from the container**  
-   - UI (and optionally API) to **publish** arbitrary messages to chosen topics.  
+   - UI and API to **publish** arbitrary messages to chosen topics.  
    - Same path may be used for automated responses and for operator-driven tests.  
    - **Implementation:** successful publishes may be **remembered** in the **application message store** (e.g. SQLite `publish_presets`: topic + payload, capped list, deduplicated) so operators can quickly re-select recent commands in the UI.
 
@@ -78,7 +78,7 @@ The project delivers an **MQTT Parser** packaged as a **Docker container** based
 The web application persists **received MQTT messages** in **SQLite** for browsing, filtering, and administration.
 
 | Requirement | Description |
-|-------------|-------------|
+| ------------- | ------------- |
 | **Engine** | **SQLite** (single file), suitable for the initial deployment inside one container without a separate database service. |
 | **Retention** | **No default expiry**: messages are kept **from the beginning** of operation unless the operator deletes them (or a future policy is added explicitly). |
 | **Durability** | The database file path must be **documented** and **mountable** as a Docker volume so data survives container recreation. |
@@ -115,12 +115,12 @@ The web application persists **received MQTT messages** in **SQLite** for browsi
 The following items were not stated initially but are recommended so the product is deployable and maintainable:
 
 | Area | Addition |
-|------|----------|
+| ------ | ---------- |
 | **Real-time UI** | WebSockets or SSE for live message stream (HTTP polling alone is usually insufficient for a good operator experience). |
 | **Auth & TLS** | Optional MQTT and HTTP TLS; broker ACLs or passwords for non-lab deployments. |
 | **Parser safety** | Limits on message size, rate, and parse depth to avoid DoS from malformed payloads. |
 | **Rules engine scope** | Clarify whether “responses” are simple topic/payload templates or a full rule DSL; document limits (max rules, evaluation order). |
-| **API** | Optional REST (or GraphQL) for automation: publish, list recent messages, manage rules — if the UI alone is not enough. |
+| **API** | REST + WebSocket are baseline capabilities for automation and UI operation: publish, list recent messages, manage rules, stream live events. |
 | **Multi-tenancy** | Single-tenant container by default; no requirement for multiple isolated tenants unless added later. |
 | **Versioning** | Image tags and changelog for reproducible deployments. |
 
